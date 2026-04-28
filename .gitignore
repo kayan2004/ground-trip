@@ -1,0 +1,7 @@
+.vscode
+.env
+notebook
+backend/.venv/
+backend/.uv-cache/
+backend/__pycache__/
+backend/.pytest_cache/

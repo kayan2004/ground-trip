@@ -1,0 +1,51 @@
+{
+  "Adventure": {
+    "precision": 0.9411764705882353,
+    "recall": 0.9411764705882353,
+    "f1-score": 0.9411764705882353,
+    "support": 34.0
+  },
+  "Relaxation": {
+    "precision": 1.0,
+    "recall": 0.9090909090909091,
+    "f1-score": 0.9523809523809523,
+    "support": 33.0
+  },
+  "Culture": {
+    "precision": 0.9705882352941176,
+    "recall": 1.0,
+    "f1-score": 0.9850746268656716,
+    "support": 33.0
+  },
+  "Budget": {
+    "precision": 0.9428571428571428,
+    "recall": 0.9705882352941176,
+    "f1-score": 0.9565217391304348,
+    "support": 34.0
+  },
+  "Luxury": {
+    "precision": 0.9705882352941176,
+    "recall": 1.0,
+    "f1-score": 0.9850746268656716,
+    "support": 33.0
+  },
+  "Family": {
+    "precision": 0.9696969696969697,
+    "recall": 0.9696969696969697,
+    "f1-score": 0.9696969696969697,
+    "support": 33.0
+  },
+  "accuracy": 0.965,
+  "macro avg": {
+    "precision": 0.9658178422884305,
+    "recall": 0.9650920974450385,
+    "f1-score": 0.9649875642546558,
+    "support": 200.0
+  },
+  "weighted avg": {
+    "precision": 0.9655798319327731,
+    "recall": 0.965,
+    "f1-score": 0.9648261796607028,
+    "support": 200.0
+  }
+}
