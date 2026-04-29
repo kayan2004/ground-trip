@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.db.base import Base
 from app.db.models import agent_run  # noqa: F401
+from app.db.models import destination_document  # noqa: F401
 from app.db.models import tool_log  # noqa: F401
 from app.db.models import user  # noqa: F401
 

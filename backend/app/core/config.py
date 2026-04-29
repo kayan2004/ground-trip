@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-this-development-secret-to-32-plus-chars"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    rag_seed_documents_path: str = "data/rag_seed_documents.json"
+    rag_chunk_size: int = 800
+    rag_chunk_overlap: int = 120
 
     model_config = SettingsConfigDict(
         env_file=".env",

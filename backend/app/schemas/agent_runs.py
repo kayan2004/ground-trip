@@ -2,11 +2,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.classifier import TravelStylePredictionRequest
 from app.schemas.tool_logs import ToolLogRead
 
 
 class AgentRunCreate(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
+    travel_profile: TravelStylePredictionRequest | None = None
 
 
 class AgentRunRead(BaseModel):

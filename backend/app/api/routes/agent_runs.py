@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
@@ -13,8 +13,15 @@ router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 @router.post("", response_model=AgentRunRead, status_code=status.HTTP_201_CREATED)
 async def create_agent_run_route(
     payload: AgentRunCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> AgentRunRead:
-    agent_run = await create_agent_run(session, current_user, payload)
+    travel_style_model = request.app.state.resources.get("travel_style_model")
+    agent_run = await create_agent_run(
+        session,
+        current_user,
+        payload,
+        travel_style_model=travel_style_model,
+    )
     return AgentRunRead.model_validate(agent_run)
