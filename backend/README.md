@@ -361,7 +361,7 @@ agent or any route - no code writes to these tables yet.
     relaxed (e.g. a withdrawn-feedback state)
   - `deleted_at` (soft delete)
 - **`tag_definitions`** (`app/db/models/tag_definition.py`) - human/LLM-readable labels for
-  clusters produced by some (not-yet-built) offline clustering step.
+  clusters produced by the offline clustering step below.
   - `cluster_id` (unique), `tag_name`, `description` (LLM-generated rationale), `quality_metrics`
     (JSONB - e.g. silhouette score, cluster size, noise ratio)
   - No `deleted_at` - not part of the per-run audit trail the other two tables are.
@@ -370,3 +370,136 @@ agent or any route - no code writes to these tables yet.
 its own declarative base/registry (see "Why `Destination` stays on its own declarative base"
 above), so `relationship()` can't resolve it by class name across bases. The FK column and its DB
 constraint exist regardless - only the ORM-level convenience accessor is skipped.
+
+## Destination Clustering (`scripts/cluster_destinations.py`)
+
+Offline HDBSCAN soft clustering over `destinations.embedding`, producing weighted travel-style
+tags per destination (`destinations.tags`) and human-readable cluster labels (`tag_definitions`).
+Not wired into the agent or any route - a standalone, run-once(-per-corpus-change) script, never a
+graph node. Requires the corpus to already be ingested with embeddings (see "Destination Corpus
+Ingestion" above) - **aborts if fewer than 50 destinations have a non-null embedding**, since
+HDBSCAN is meaningless on a tiny corpus.
+
+### Why this approach
+
+- **Cosine geometry, L2-normalized.** Retrieval elsewhere in this project (RAG, destination
+  similarity) uses cosine distance, so embeddings are L2-normalized before UMAP and UMAP is fit
+  with `metric="cosine"`, keeping the clustering geometry consistent with how these vectors are
+  used everywhere else.
+- **UMAP before HDBSCAN, not HDBSCAN directly on 1024-dim embeddings.** HDBSCAN's density
+  estimates degrade in high dimensions (the curse of dimensionality flattens pairwise distances).
+  UMAP reduces to ~10 dimensions first (`--umap-n-components`, default 10) on a fixed
+  `random_state`, and HDBSCAN then runs in Euclidean space on that reduced embedding
+  (`metric="euclidean"`, `cluster_selection_method="eom"`).
+  - `HDBSCAN` has **no `random_state` of its own** - its only source of run-to-run randomness is
+    the approximate minimum-spanning-tree algorithm, which is disabled here
+    (`approx_min_span_tree=False`) so the main clustering run is fully reproducible for a fixed
+    UMAP embedding. This also means the stability check below is measuring exactly one thing:
+    sensitivity to UMAP's random initialization.
+- **Soft clustering, not hard labels.** `hdbscan.all_points_membership_vectors` gives every
+  destination (including HDBSCAN's hard-label noise points) a membership weight against every
+  cluster. Weights above `--membership-threshold` (default `0.15`) become a destination's weighted
+  `{cluster_id: weight}` tags - a destination can legitimately carry multiple travel-style tags.
+- **Two independent quality signals, not one.** Silhouette score (computed in UMAP space,
+  excluding noise - undefined with fewer than 2 clusters) measures separation; DBCV
+  (`hdbscan.validity.validity_index`, wrapped in a fallback since it can fail on degenerate inputs)
+  is density-aware and purpose-built for HDBSCAN's variable-density clusters. Both land in
+  `quality_report.json` rather than picking one.
+- **Stability is measured, not assumed.** `cluster` re-fits the entire UMAP -> HDBSCAN pipeline
+  across `--n-stability-runs` (default 5) different UMAP seeds and reports the pairwise Adjusted
+  Rand Index between the resulting label sets. A mean ARI below `0.7` is flagged
+  `"flagged_unstable": true` in `stability_report.json` - a signal to retune `--min-cluster-size`
+  or gather more corpus data, not a hard failure.
+
+### Three phases, separately resumable
+
+```powershell
+# Phase 1: fit UMAP + HDBSCAN, write weighted {cluster_id: weight} tags to
+# destinations.tags, write all artifacts/clustering/ outputs.
+uv run python scripts/cluster_destinations.py cluster
+
+# Phase 2: ask Claude (ANTHROPIC_STRONG_MODEL) to propose a tag_name +
+# description per cluster from artifacts/clustering/ (no re-clustering).
+# Upserts into tag_definitions - re-run any time to regenerate proposals.
+uv run python scripts/cluster_destinations.py name
+
+# Review/edit tag_definitions.tag_name / .description in the DB, then:
+
+# Phase 3: rewrite destinations.tags from cluster_id keys to the approved
+# tag_name keys. Re-runnable any time tag_definitions changes.
+uv run python scripts/cluster_destinations.py apply-tags
+```
+
+`cluster` accepts `--min-cluster-size` (default 7), `--min-samples` (defaults to
+`--min-cluster-size` when omitted, HDBSCAN's own default), `--membership-threshold` (default
+`0.15`), `--umap-n-components`/`--umap-n-neighbors`/`--umap-min-dist`, `--random-state` (default
+`42`), `--n-stability-runs` (default 5, `--skip-stability` to skip), and `--dry-run` (compute and
+write artifacts without touching `destinations.tags` - useful while tuning hyperparameters).
+
+The source of truth for `name` and `apply-tags` is `artifacts/clustering/cluster_members.json`
+(written by `cluster`), not the live `destinations.tags` column - `apply-tags` is safe to re-run at
+any point in the naming/approval process, and clusters without an approved `tag_definitions` entry
+are simply omitted from the written tags rather than blocking the run.
+
+### Reading `artifacts/clustering/`
+
+- `quality_report.json` - `n_clusters`, `noise_ratio`, `hard_cluster_sizes` (HDBSCAN's hard label
+  counts) vs. `soft_cluster_sizes` (count above `membership_threshold` per cluster - these can
+  differ, which is the point of soft clustering), `silhouette_umap_space`, `dbcv`.
+- `stability_report.json` - `mean_ari`/`min_ari` across `n_runs` UMAP seeds, `flagged_unstable`.
+  Low ARI means small changes to UMAP's initialization meaningfully change which destinations end
+  up in which cluster - treat the clustering as provisional until this improves.
+- `cluster_members.json` - every destination's raw membership weight for every cluster, sorted
+  descending, for manual inspection. This is what `name` and `apply-tags` actually read.
+- `membership_vectors.npz` - the raw `all_points_membership_vectors` output (`destination_ids`,
+  `membership` matrix, `labels`), for anyone who wants to re-analyze without re-fitting.
+- `umap_reducer.joblib` / `hdbscan_clusterer.joblib` - the fitted objects, for reproducibility.
+- `umap_scatter.png` - a **dedicated 2D UMAP fit** (not a 2D slice of the clustered
+  `n_components`-dim embedding) colored by final cluster assignment.
+- `membership_weight_histogram.png` - distribution of nonzero soft-membership weights, a sanity
+  check on whether `--membership-threshold` is in a reasonable place.
+- `naming_prompts/cluster_<id>.json` - the exact example destinations, quality metrics, and Claude
+  proposal for every cluster's naming call, for reproducibility.
+
+### When to re-cluster
+
+Re-run the full `cluster` -> `name` -> `apply-tags` sequence whenever the destinations corpus
+changes meaningfully (a full re-ingestion, a large batch of new destinations, or a change to the
+embedding model/version). `cluster` is idempotent - it overwrites `destinations.tags` and every
+artifact cleanly on each run - but it is not incremental: adding a handful of destinations to an
+already-clustered corpus means re-fitting from scratch, not assigning the new rows to existing
+clusters.
+
+## Provider-Agnostic LLM Layer
+
+All three LLM call sites (field extraction, trip synthesis, offline cluster naming) go through
+`app/services/llm_providers.py`'s `LLMProvider` interface rather than hardcoding Anthropic's REST
+shape. `LLM_PROVIDER` (`anthropic` or `gemini`, default `anthropic`) is one global switch - it is
+not a per-call-site setting and there is no automatic fallback between providers. Set both
+providers' credentials if you want to be able to switch without restarting with different env
+vars, or just the one you're using.
+
+### Gemini / Gemma 4
+
+Gemma 4 (Google's open-weight model family, Apache 2.0, released April 2026) is served through
+the same Gemini Developer API used for proprietary Gemini models. Configure:
+
+```
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_FAST_MODEL=gemma-4-26b-a4b-it   # 26B MoE, 4B active - extraction
+GEMINI_STRONG_MODEL=gemma-4-31b-it     # 31B dense - synthesis, cluster naming
+```
+
+Generate a **restricted** API key (scoped to the Generative Language API) at
+[Google AI Studio](https://aistudio.google.com/apikey) - Google is phasing out unrestricted
+Gemini API keys during 2026 (restricted keys work until September 2026; after that, only
+service-account-bound auth keys are accepted).
+
+### Adding a third provider
+
+Implement the `LLMProvider` protocol in `app/services/llm_providers.py` (one `generate()` method
+translating the provider-agnostic call into that provider's REST shape) and add it to
+`get_llm_provider()`'s dispatch. `app/services/llm.py`'s three orchestration functions
+(`extract_request_fields`, `synthesize_trip_response`, `propose_cluster_tag`) need no changes -
+they only depend on the `LLMProvider` interface, not any specific provider.

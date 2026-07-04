@@ -25,7 +25,8 @@ rationale, model comparison, known gaps).
 ## Stack
 
 - **Backend**: FastAPI, SQLAlchemy 2.x async (asyncpg), LangGraph, pydantic-settings, PyJWT,
-  pgvector, scikit-learn/joblib, uv for dependency management, Python 3.14.
+  pgvector, scikit-learn/joblib, umap-learn/hdbscan (offline clustering only), uv for dependency
+  management, Python 3.14.
 - **Frontend**: React 19 + TypeScript + Vite, no router library (manual `pushState`).
 - **Infra**: Docker Compose — `db` (pgvector/pgvector:0.8.2-pg17), `backend`, `frontend` (nginx).
 
@@ -61,6 +62,11 @@ uv run alembic upgrade head                          # applies all migrations (e
 uv run python scripts/ingest_destinations.py --limit 5  # smoke test; omit --limit for the full ~219
 ```
 
+Offline destination clustering (weighted travel-style tags, not wired into the agent — see
+backend/README.md's "Destination Clustering" section): three separable phases,
+`uv run python scripts/cluster_destinations.py {cluster,name,apply-tags}`. Requires >=50
+destinations with a non-null `embedding`; aborts otherwise.
+
 ## Architecture
 
 ```
@@ -73,9 +79,11 @@ backend/app/
 ├── agent/      # LangGraph state machine (graph.py) + BaseTool/ToolRegistry (tools/)
 ├── api/routes/ # Thin FastAPI routers, one file per concern, all behind JWT auth
 ├── schemas/    # Pydantic models — the validation boundary for every route/tool
-├── services/   # Business logic: classifier, claude (extraction+synthesis+model routing),
-│               #   discord_webhook, live_conditions, rag_ingestion, rag_retrieval,
-│               #   recommendations, voyage_embeddings
+├── services/   # Business logic: classifier, llm (extraction+synthesis+model routing+cluster
+│               #   naming, provider-agnostic via llm_providers.py's LLMProvider interface -
+│               #   Anthropic/Gemini), clustering (offline UMAP+HDBSCAN,
+│               #   scripts/cluster_destinations.py only), discord_webhook, live_conditions,
+│               #   rag_ingestion, rag_retrieval, recommendations, voyage_embeddings
 └── prompts/    # Raw prompt templates (request_field_extraction_prompt.txt)
 ```
 
@@ -95,10 +103,11 @@ from `services/agent_runs.py`.
 `input_model`, and async `arun(payload, context)`. Registered in `registry.py`
 (`build_default_tool_registry`) — this is the allowlist; nothing outside it is callable.
 
-**Two-model routing** (`services/claude.py`): `choose_anthropic_model()` picks
-`anthropic_fast_model` (Haiku) vs `anthropic_strong_model` (Sonnet) based on prompt length,
-number of failed tools, and response richness. Fast model does field extraction; strong model
-does final synthesis.
+**Two-model routing** (`services/llm.py`): `choose_model()` picks the fast vs. strong model of
+whichever provider is configured (`LLM_PROVIDER`) based on prompt length, number of failed tools,
+and response richness. Fast model does field extraction; strong model does final synthesis and
+cluster naming. Provider dispatch lives in `services/llm_providers.py`'s `LLMProvider` interface
+(`AnthropicProvider`, `GeminiProvider`) - see backend/README.md's "Provider-Agnostic LLM Layer".
 
 ## Conventions to follow when editing
 
