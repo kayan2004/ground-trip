@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.dependencies.auth import get_current_user
 from app.db.models.user import User
-from app.services.claude import list_anthropic_models
+from app.services.llm import list_anthropic_models
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 

@@ -10,7 +10,7 @@ from app.schemas.classifier import TravelStylePredictionRequest
 from app.schemas.live_conditions import LiveConditionsRequest
 from app.schemas.rag_retrieval import RagRetrievalRequest
 from app.schemas.recommendations import DestinationRecommendationRequest
-from app.services.claude import extract_request_fields, synthesize_trip_response
+from app.services.llm import extract_request_fields, synthesize_trip_response
 
 
 class TripPlannerState(TypedDict):

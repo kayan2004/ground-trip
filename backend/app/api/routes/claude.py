@@ -8,9 +8,10 @@ from app.schemas.claude import (
     ExtractionTestRequest,
     ExtractionTestResponse,
 )
-from app.services.claude import (
-    choose_anthropic_model,
+from app.services.llm import (
+    choose_model,
     extract_request_fields,
+    fast_model_name,
     synthesize_trip_response,
 )
 
@@ -35,7 +36,7 @@ async def test_claude_route(
         )
 
     settings = request.app.state.settings
-    selected_model = choose_anthropic_model(
+    selected_model = choose_model(
         settings,
         prompt=payload.prompt,
         response_sections=payload.response_sections,
@@ -82,6 +83,6 @@ async def test_extraction_route(
     )
 
     return ExtractionTestResponse(
-        selected_model=settings.anthropic_fast_model,
+        selected_model=fast_model_name(settings),
         extracted_fields=extracted_fields,
     )
