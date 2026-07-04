@@ -8,6 +8,8 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.schemas.classifier import TravelStylePredictionRequest
 from app.schemas.claude import ExtractedRequestFields
+from app.schemas.clustering import ClusterNamingProposal
+from app.services.llm_providers import _raise_for_status_with_body, get_llm_provider
 import httpx
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
@@ -35,7 +37,25 @@ async def list_anthropic_models(
     return response.json()
 
 
-def choose_anthropic_model(
+def fast_model_name(settings: Settings) -> str:
+    if settings.llm_provider == "gemini":
+        return settings.gemini_fast_model
+    return settings.anthropic_fast_model
+
+
+def strong_model_name(settings: Settings) -> str:
+    if settings.llm_provider == "gemini":
+        return settings.gemini_strong_model
+    return settings.anthropic_strong_model
+
+
+def _generation_settings(settings: Settings) -> tuple[int, float]:
+    if settings.llm_provider == "gemini":
+        return settings.gemini_max_tokens, settings.gemini_temperature
+    return settings.anthropic_max_tokens, settings.anthropic_temperature
+
+
+def choose_model(
     settings: Settings,
     *,
     prompt: str,
@@ -50,8 +70,8 @@ def choose_anthropic_model(
     )
 
     if failed_tools > 0 or long_prompt or rich_context or verbose_tool_payloads:
-        return settings.anthropic_strong_model
-    return settings.anthropic_fast_model
+        return strong_model_name(settings)
+    return fast_model_name(settings)
 
 
 async def extract_request_fields(
@@ -60,56 +80,30 @@ async def extract_request_fields(
     *,
     prompt: str,
 ) -> ExtractedRequestFields:
-    if not settings.anthropic_api_key:
-        raise RuntimeError("Anthropic API key is not configured.")
-
-    response = await http_client.post(
-        f"{settings.anthropic_api_base_url}/v1/messages",
-        headers={
-            "x-api-key": settings.anthropic_api_key,
-            "anthropic-version": settings.anthropic_api_version,
-            "content-type": "application/json",
-        },
-        json={
-            "model": settings.anthropic_fast_model,
-            "max_tokens": 500,
-            "temperature": 0.0,
-            "system": (
-                "You extract structured travel-planning fields from user prompts. "
-                "Return strict JSON only. "
-                "Do not invent a destination if one is not clearly implied. "
-                "Follow the extraction spec exactly."
-            ),
-            "messages": [
-                {
-                    "role": "user",
-                    "content": _build_request_field_extraction_prompt(prompt),
-                }
-            ],
-        },
-        timeout=settings.weather_request_timeout_seconds,
+    provider = get_llm_provider(settings)
+    final_text = await provider.generate(
+        http_client,
+        settings,
+        system=(
+            "You extract structured travel-planning fields from user prompts. "
+            "Return strict JSON only. "
+            "Do not invent a destination if one is not clearly implied. "
+            "Follow the extraction spec exactly."
+        ),
+        user_content=_build_request_field_extraction_prompt(prompt),
+        model=fast_model_name(settings),
+        max_tokens=500,
+        temperature=0.0,
     )
-    _raise_for_status_with_body(
-        response,
-        context=f"Claude request extraction using model '{settings.anthropic_fast_model}'",
-    )
-    payload = response.json()
-    content_blocks = payload.get("content") or []
-    text_parts = [
-        block.get("text", "").strip()
-        for block in content_blocks
-        if isinstance(block, dict) and block.get("type") == "text"
-    ]
-    final_text = "\n".join(part for part in text_parts if part).strip()
 
     if not final_text:
-        raise RuntimeError("Claude returned an empty extraction response.")
+        raise RuntimeError("The LLM returned an empty extraction response.")
 
     try:
         extracted_payload = _extract_json_payload(final_text)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
-            f"Claude extraction returned non-JSON output: {final_text}"
+            f"LLM extraction returned non-JSON output: {final_text}"
         ) from exc
 
     extracted_payload = _normalize_extracted_payload(extracted_payload)
@@ -126,9 +120,6 @@ async def synthesize_trip_response(
     response_sections: list[str],
     tool_logs: list[dict[str, str]],
 ) -> str:
-    if not settings.anthropic_api_key:
-        raise RuntimeError("Anthropic API key is not configured.")
-
     context_lines = [
         "Trip planning context gathered by backend tools:",
         *[f"- {section}" for section in response_sections],
@@ -148,68 +139,103 @@ async def synthesize_trip_response(
     if destination_name is not None:
         context_lines.append(f"Destination under discussion: {destination_name}")
 
-    selected_model = choose_anthropic_model(
+    selected_model = choose_model(
         settings,
         prompt=prompt,
         response_sections=response_sections,
         tool_logs=tool_logs,
     )
+    max_tokens, temperature = _generation_settings(settings)
 
-    response = await http_client.post(
-        f"{settings.anthropic_api_base_url}/v1/messages",
-        headers={
-            "x-api-key": settings.anthropic_api_key,
-            "anthropic-version": settings.anthropic_api_version,
-            "content-type": "application/json",
-        },
-        json={
-            "model": selected_model,
-            "max_tokens": settings.anthropic_max_tokens,
-            "temperature": settings.anthropic_temperature,
-            "system": (
-                "You are a concise travel-planning assistant. "
-                "Use the provided tool outputs to produce a helpful recommendation. "
-                "If some tool output failed, acknowledge uncertainty briefly and continue."
-            ),
-            "messages": [
-                {
-                    "role": "user",
-                    "content": (
-                        f"User prompt: {prompt}\n\n"
-                        + "\n".join(context_lines)
-                        + "\n\nWrite one polished travel-planning answer in 1-3 short paragraphs."
-                    ),
-                }
-            ],
-        },
-        timeout=settings.weather_request_timeout_seconds,
+    provider = get_llm_provider(settings)
+    final_text = await provider.generate(
+        http_client,
+        settings,
+        system=(
+            "You are a concise travel-planning assistant. "
+            "Use the provided tool outputs to produce a helpful recommendation. "
+            "If some tool output failed, acknowledge uncertainty briefly and continue."
+        ),
+        user_content=(
+            f"User prompt: {prompt}\n\n"
+            + "\n".join(context_lines)
+            + "\n\nWrite one polished travel-planning answer in 1-3 short paragraphs."
+        ),
+        model=selected_model,
+        max_tokens=max_tokens,
+        temperature=temperature,
     )
-    _raise_for_status_with_body(
-        response,
-        context=f"Claude synthesis using model '{selected_model}'",
-    )
-    payload = response.json()
-    content_blocks = payload.get("content") or []
-    text_parts = [
-        block.get("text", "").strip()
-        for block in content_blocks
-        if isinstance(block, dict) and block.get("type") == "text"
-    ]
-    final_text = "\n\n".join(part for part in text_parts if part)
 
     if not final_text:
-        raise RuntimeError("Claude returned an empty response.")
+        raise RuntimeError("The LLM returned an empty response.")
 
     return final_text
 
 
-def _raise_for_status_with_body(response: httpx.Response, *, context: str) -> None:
+async def propose_cluster_tag(
+    http_client: httpx.AsyncClient,
+    settings: Settings,
+    *,
+    cluster_id: int,
+    example_destinations: list[dict[str, object]],
+    quality_metrics: dict[str, object],
+) -> ClusterNamingProposal:
+    """Ask the configured LLM provider to name one HDBSCAN destination cluster.
+
+    Used offline by scripts/cluster_destinations.py, never on the request
+    path - always the strong model (naming quality matters more than
+    latency/cost here, and this runs a handful of times per corpus, not
+    per-request).
+    """
+    examples_block = "\n".join(
+        f"- {entry.get('name')}, {entry.get('country')} "
+        f"(region={entry.get('region')}, budget={entry.get('budget_level')}, "
+        f"membership={entry.get('membership'):.2f}, "
+        f"top POIs={entry.get('poi_kinds')})"
+        for entry in example_destinations
+    )
+
+    provider = get_llm_provider(settings)
+    final_text = await provider.generate(
+        http_client,
+        settings,
+        system=(
+            "You label clusters of travel destinations for a recommendation "
+            "system. Given representative destinations and clustering "
+            "quality metrics for one cluster, propose a short, specific "
+            "travel-style tag name (2-4 words, title case, no generic "
+            "words like 'Destinations' or 'Places') and a one-paragraph "
+            "description of what unifies this cluster. Return strict "
+            'JSON only: {"tag_name": "...", "description": "..."}. '
+            "Do not invent facts not supported by the examples."
+        ),
+        user_content=(
+            f"Cluster {cluster_id} - {len(example_destinations)} "
+            f"representative destinations (highest soft-membership "
+            f"weight first):\n{examples_block}\n\n"
+            f"Clustering quality metrics for this cluster: "
+            f"{json.dumps(quality_metrics)}"
+        ),
+        model=strong_model_name(settings),
+        max_tokens=400,
+        temperature=0.2,
+    )
+
+    if not final_text:
+        raise RuntimeError(f"The LLM returned an empty naming response for cluster {cluster_id}.")
+
     try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        body = response.text.strip()
+        naming_payload = _extract_json_payload(final_text)
+    except json.JSONDecodeError as exc:
         raise RuntimeError(
-            f"{context} failed with status {response.status_code}. Response body: {body}"
+            f"LLM naming for cluster {cluster_id} returned non-JSON output: {final_text}"
+        ) from exc
+
+    try:
+        return ClusterNamingProposal.model_validate(naming_payload)
+    except ValidationError as exc:
+        raise RuntimeError(
+            f"LLM naming for cluster {cluster_id} returned an invalid shape: {exc}"
         ) from exc
 
 
