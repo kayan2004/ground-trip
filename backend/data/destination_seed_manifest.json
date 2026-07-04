@@ -1,0 +1,1321 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-04T10:31:55.075634+00:00",
+  "note": "Seed manifest for destination corpus ingestion. Only name/country/region/wikivoyage_url are hand-curated; lat/lon and OpenTripMap/Numbeo lookups are resolved dynamically at ingestion time (see services/destination_ingestion.py) to avoid baking in guessed coordinates or slugs.",
+  "destinations": [
+    {
+      "name": "Paris",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Paris"
+    },
+    {
+      "name": "Lyon",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Lyon"
+    },
+    {
+      "name": "Nice",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nice"
+    },
+    {
+      "name": "Marseille",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Marseille"
+    },
+    {
+      "name": "Bordeaux",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bordeaux"
+    },
+    {
+      "name": "Strasbourg",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Strasbourg"
+    },
+    {
+      "name": "Rome",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Rome"
+    },
+    {
+      "name": "Florence",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Florence"
+    },
+    {
+      "name": "Venice",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Venice"
+    },
+    {
+      "name": "Milan",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Milan"
+    },
+    {
+      "name": "Naples",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Naples"
+    },
+    {
+      "name": "Bologna",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bologna"
+    },
+    {
+      "name": "Turin",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Turin"
+    },
+    {
+      "name": "Verona",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Verona"
+    },
+    {
+      "name": "Barcelona",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Barcelona"
+    },
+    {
+      "name": "Madrid",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Madrid"
+    },
+    {
+      "name": "Seville",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Seville"
+    },
+    {
+      "name": "Granada",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Granada"
+    },
+    {
+      "name": "Valencia",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Valencia"
+    },
+    {
+      "name": "Bilbao",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bilbao"
+    },
+    {
+      "name": "San Sebastian",
+      "country": "Spain",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/San_Sebastian"
+    },
+    {
+      "name": "Lisbon",
+      "country": "Portugal",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Lisbon"
+    },
+    {
+      "name": "Porto",
+      "country": "Portugal",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Porto"
+    },
+    {
+      "name": "Madeira",
+      "country": "Portugal",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Madeira"
+    },
+    {
+      "name": "Amsterdam",
+      "country": "Netherlands",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Amsterdam"
+    },
+    {
+      "name": "Rotterdam",
+      "country": "Netherlands",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Rotterdam"
+    },
+    {
+      "name": "Brussels",
+      "country": "Belgium",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Brussels"
+    },
+    {
+      "name": "Bruges",
+      "country": "Belgium",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bruges"
+    },
+    {
+      "name": "Ghent",
+      "country": "Belgium",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Ghent"
+    },
+    {
+      "name": "Berlin",
+      "country": "Germany",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Berlin"
+    },
+    {
+      "name": "Munich",
+      "country": "Germany",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Munich"
+    },
+    {
+      "name": "Hamburg",
+      "country": "Germany",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Hamburg"
+    },
+    {
+      "name": "Cologne",
+      "country": "Germany",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cologne"
+    },
+    {
+      "name": "Dresden",
+      "country": "Germany",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Dresden"
+    },
+    {
+      "name": "Vienna",
+      "country": "Austria",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Vienna"
+    },
+    {
+      "name": "Salzburg",
+      "country": "Austria",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Salzburg"
+    },
+    {
+      "name": "Innsbruck",
+      "country": "Austria",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Innsbruck"
+    },
+    {
+      "name": "Zurich",
+      "country": "Switzerland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Zurich"
+    },
+    {
+      "name": "Geneva",
+      "country": "Switzerland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Geneva"
+    },
+    {
+      "name": "Lucerne",
+      "country": "Switzerland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Lucerne"
+    },
+    {
+      "name": "Interlaken",
+      "country": "Switzerland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Interlaken"
+    },
+    {
+      "name": "Zermatt",
+      "country": "Switzerland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Zermatt"
+    },
+    {
+      "name": "Prague",
+      "country": "Czech Republic",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Prague"
+    },
+    {
+      "name": "Cesky Krumlov",
+      "country": "Czech Republic",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cesky_Krumlov"
+    },
+    {
+      "name": "Budapest",
+      "country": "Hungary",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Budapest"
+    },
+    {
+      "name": "Warsaw",
+      "country": "Poland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Warsaw"
+    },
+    {
+      "name": "Krakow",
+      "country": "Poland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Krakow"
+    },
+    {
+      "name": "Gdansk",
+      "country": "Poland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Gdansk"
+    },
+    {
+      "name": "Copenhagen",
+      "country": "Denmark",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Copenhagen"
+    },
+    {
+      "name": "Stockholm",
+      "country": "Sweden",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Stockholm"
+    },
+    {
+      "name": "Gothenburg",
+      "country": "Sweden",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Gothenburg"
+    },
+    {
+      "name": "Oslo",
+      "country": "Norway",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Oslo"
+    },
+    {
+      "name": "Bergen",
+      "country": "Norway",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bergen"
+    },
+    {
+      "name": "Tromso",
+      "country": "Norway",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tromso"
+    },
+    {
+      "name": "Helsinki",
+      "country": "Finland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Helsinki"
+    },
+    {
+      "name": "Reykjavik",
+      "country": "Iceland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Reykjavik"
+    },
+    {
+      "name": "Dublin",
+      "country": "Ireland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Dublin"
+    },
+    {
+      "name": "Galway",
+      "country": "Ireland",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Galway"
+    },
+    {
+      "name": "Edinburgh",
+      "country": "United Kingdom",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Edinburgh"
+    },
+    {
+      "name": "London",
+      "country": "United Kingdom",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/London"
+    },
+    {
+      "name": "Glasgow",
+      "country": "United Kingdom",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Glasgow"
+    },
+    {
+      "name": "Bath",
+      "country": "United Kingdom",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bath"
+    },
+    {
+      "name": "Athens",
+      "country": "Greece",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Athens"
+    },
+    {
+      "name": "Santorini",
+      "country": "Greece",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Santorini"
+    },
+    {
+      "name": "Mykonos",
+      "country": "Greece",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Mykonos"
+    },
+    {
+      "name": "Crete",
+      "country": "Greece",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Crete"
+    },
+    {
+      "name": "Thessaloniki",
+      "country": "Greece",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Thessaloniki"
+    },
+    {
+      "name": "Dubrovnik",
+      "country": "Croatia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Dubrovnik"
+    },
+    {
+      "name": "Split",
+      "country": "Croatia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Split"
+    },
+    {
+      "name": "Zagreb",
+      "country": "Croatia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Zagreb"
+    },
+    {
+      "name": "Ljubljana",
+      "country": "Slovenia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Ljubljana"
+    },
+    {
+      "name": "Bratislava",
+      "country": "Slovakia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bratislava"
+    },
+    {
+      "name": "Bucharest",
+      "country": "Romania",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bucharest"
+    },
+    {
+      "name": "Sofia",
+      "country": "Bulgaria",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Sofia"
+    },
+    {
+      "name": "Riga",
+      "country": "Latvia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Riga"
+    },
+    {
+      "name": "Vilnius",
+      "country": "Lithuania",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Vilnius"
+    },
+    {
+      "name": "Tallinn",
+      "country": "Estonia",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tallinn"
+    },
+    {
+      "name": "Chamonix",
+      "country": "France",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Chamonix"
+    },
+    {
+      "name": "Dolomites",
+      "country": "Italy",
+      "region": "Europe",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Dolomites"
+    },
+    {
+      "name": "Kazbegi",
+      "country": "Georgia",
+      "region": "Europe/Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Kazbegi"
+    },
+    {
+      "name": "Tokyo",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tokyo"
+    },
+    {
+      "name": "Kyoto",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Kyoto"
+    },
+    {
+      "name": "Osaka",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Osaka"
+    },
+    {
+      "name": "Sapporo",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Sapporo"
+    },
+    {
+      "name": "Hiroshima",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Hiroshima"
+    },
+    {
+      "name": "Nara",
+      "country": "Japan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nara"
+    },
+    {
+      "name": "Seoul",
+      "country": "South Korea",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Seoul"
+    },
+    {
+      "name": "Busan",
+      "country": "South Korea",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Busan"
+    },
+    {
+      "name": "Beijing",
+      "country": "China",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Beijing"
+    },
+    {
+      "name": "Shanghai",
+      "country": "China",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Shanghai"
+    },
+    {
+      "name": "Chengdu",
+      "country": "China",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Chengdu"
+    },
+    {
+      "name": "Guilin",
+      "country": "China",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Guilin"
+    },
+    {
+      "name": "Hong Kong",
+      "country": "China",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Hong_Kong"
+    },
+    {
+      "name": "Taipei",
+      "country": "Taiwan",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Taipei"
+    },
+    {
+      "name": "Bangkok",
+      "country": "Thailand",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bangkok"
+    },
+    {
+      "name": "Chiang Mai",
+      "country": "Thailand",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Chiang_Mai"
+    },
+    {
+      "name": "Phuket",
+      "country": "Thailand",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Phuket"
+    },
+    {
+      "name": "Krabi",
+      "country": "Thailand",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Krabi"
+    },
+    {
+      "name": "Hanoi",
+      "country": "Vietnam",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Hanoi"
+    },
+    {
+      "name": "Ho Chi Minh City",
+      "country": "Vietnam",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Ho_Chi_Minh_City"
+    },
+    {
+      "name": "Hoi An",
+      "country": "Vietnam",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Hoi_An"
+    },
+    {
+      "name": "Siem Reap",
+      "country": "Cambodia",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Siem_Reap"
+    },
+    {
+      "name": "Luang Prabang",
+      "country": "Laos",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Luang_Prabang"
+    },
+    {
+      "name": "Yangon",
+      "country": "Myanmar",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Yangon"
+    },
+    {
+      "name": "Bagan",
+      "country": "Myanmar",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bagan"
+    },
+    {
+      "name": "Singapore",
+      "country": "Singapore",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Singapore"
+    },
+    {
+      "name": "Kuala Lumpur",
+      "country": "Malaysia",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Kuala_Lumpur"
+    },
+    {
+      "name": "Bali",
+      "country": "Indonesia",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bali"
+    },
+    {
+      "name": "Yogyakarta",
+      "country": "Indonesia",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Yogyakarta"
+    },
+    {
+      "name": "Jakarta",
+      "country": "Indonesia",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Jakarta"
+    },
+    {
+      "name": "Manila",
+      "country": "Philippines",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Manila"
+    },
+    {
+      "name": "Cebu",
+      "country": "Philippines",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cebu"
+    },
+    {
+      "name": "Palawan",
+      "country": "Philippines",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Palawan"
+    },
+    {
+      "name": "Kathmandu",
+      "country": "Nepal",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Kathmandu"
+    },
+    {
+      "name": "Pokhara",
+      "country": "Nepal",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Pokhara"
+    },
+    {
+      "name": "New Delhi",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/New_Delhi"
+    },
+    {
+      "name": "Mumbai",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Mumbai"
+    },
+    {
+      "name": "Jaipur",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Jaipur"
+    },
+    {
+      "name": "Agra",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Agra"
+    },
+    {
+      "name": "Goa",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Goa"
+    },
+    {
+      "name": "Varanasi",
+      "country": "India",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Varanasi"
+    },
+    {
+      "name": "Colombo",
+      "country": "Sri Lanka",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Colombo"
+    },
+    {
+      "name": "Kandy",
+      "country": "Sri Lanka",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Kandy"
+    },
+    {
+      "name": "Male",
+      "country": "Maldives",
+      "region": "Asia",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Male"
+    },
+    {
+      "name": "New York City",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/New_York_City"
+    },
+    {
+      "name": "San Francisco",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/San_Francisco"
+    },
+    {
+      "name": "Los Angeles",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Los_Angeles"
+    },
+    {
+      "name": "Chicago",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Chicago"
+    },
+    {
+      "name": "Boston",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Boston"
+    },
+    {
+      "name": "Miami",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Miami"
+    },
+    {
+      "name": "New Orleans",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/New_Orleans"
+    },
+    {
+      "name": "Las Vegas",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Las_Vegas"
+    },
+    {
+      "name": "Seattle",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Seattle"
+    },
+    {
+      "name": "Austin",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Austin"
+    },
+    {
+      "name": "Moab",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Moab"
+    },
+    {
+      "name": "Honolulu",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Honolulu"
+    },
+    {
+      "name": "Portland",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Portland"
+    },
+    {
+      "name": "Denver",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Denver"
+    },
+    {
+      "name": "San Diego",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/San_Diego"
+    },
+    {
+      "name": "Nashville",
+      "country": "United States",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nashville"
+    },
+    {
+      "name": "Toronto",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Toronto"
+    },
+    {
+      "name": "Vancouver",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Vancouver"
+    },
+    {
+      "name": "Montreal",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Montreal"
+    },
+    {
+      "name": "Quebec City",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Quebec_City"
+    },
+    {
+      "name": "Banff",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Banff"
+    },
+    {
+      "name": "Whistler",
+      "country": "Canada",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Whistler"
+    },
+    {
+      "name": "Mexico City",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Mexico_City"
+    },
+    {
+      "name": "Cancun",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cancun"
+    },
+    {
+      "name": "Oaxaca",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Oaxaca"
+    },
+    {
+      "name": "Tulum",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tulum"
+    },
+    {
+      "name": "Puerto Vallarta",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Puerto_Vallarta"
+    },
+    {
+      "name": "Guanajuato",
+      "country": "Mexico",
+      "region": "North America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Guanajuato"
+    },
+    {
+      "name": "Rio de Janeiro",
+      "country": "Brazil",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Rio_de_Janeiro"
+    },
+    {
+      "name": "Sao Paulo",
+      "country": "Brazil",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Sao_Paulo"
+    },
+    {
+      "name": "Salvador",
+      "country": "Brazil",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Salvador"
+    },
+    {
+      "name": "Florianopolis",
+      "country": "Brazil",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Florianopolis"
+    },
+    {
+      "name": "Buenos Aires",
+      "country": "Argentina",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Buenos_Aires"
+    },
+    {
+      "name": "Bariloche",
+      "country": "Argentina",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bariloche"
+    },
+    {
+      "name": "Mendoza",
+      "country": "Argentina",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Mendoza"
+    },
+    {
+      "name": "Patagonia",
+      "country": "Argentina/Chile",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Patagonia"
+    },
+    {
+      "name": "Santiago",
+      "country": "Chile",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Santiago"
+    },
+    {
+      "name": "Valparaiso",
+      "country": "Chile",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Valparaiso"
+    },
+    {
+      "name": "Lima",
+      "country": "Peru",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Lima"
+    },
+    {
+      "name": "Cusco",
+      "country": "Peru",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cusco"
+    },
+    {
+      "name": "Bogota",
+      "country": "Colombia",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bogota"
+    },
+    {
+      "name": "Cartagena",
+      "country": "Colombia",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cartagena"
+    },
+    {
+      "name": "Medellin",
+      "country": "Colombia",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Medellin"
+    },
+    {
+      "name": "Quito",
+      "country": "Ecuador",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Quito"
+    },
+    {
+      "name": "Montevideo",
+      "country": "Uruguay",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Montevideo"
+    },
+    {
+      "name": "La Paz",
+      "country": "Bolivia",
+      "region": "South America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/La_Paz"
+    },
+    {
+      "name": "Sydney",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Sydney"
+    },
+    {
+      "name": "Melbourne",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Melbourne"
+    },
+    {
+      "name": "Brisbane",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Brisbane"
+    },
+    {
+      "name": "Cairns",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cairns"
+    },
+    {
+      "name": "Perth",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Perth"
+    },
+    {
+      "name": "Gold Coast",
+      "country": "Australia",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Gold_Coast"
+    },
+    {
+      "name": "Auckland",
+      "country": "New Zealand",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Auckland"
+    },
+    {
+      "name": "Queenstown",
+      "country": "New Zealand",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Queenstown"
+    },
+    {
+      "name": "Wellington",
+      "country": "New Zealand",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Wellington"
+    },
+    {
+      "name": "Rotorua",
+      "country": "New Zealand",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Rotorua"
+    },
+    {
+      "name": "Nadi",
+      "country": "Fiji",
+      "region": "Oceania",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nadi"
+    },
+    {
+      "name": "Marrakesh",
+      "country": "Morocco",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Marrakesh"
+    },
+    {
+      "name": "Fes",
+      "country": "Morocco",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Fes"
+    },
+    {
+      "name": "Casablanca",
+      "country": "Morocco",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Casablanca"
+    },
+    {
+      "name": "Cairo",
+      "country": "Egypt",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cairo"
+    },
+    {
+      "name": "Luxor",
+      "country": "Egypt",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Luxor"
+    },
+    {
+      "name": "Aswan",
+      "country": "Egypt",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Aswan"
+    },
+    {
+      "name": "Cape Town",
+      "country": "South Africa",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cape_Town"
+    },
+    {
+      "name": "Johannesburg",
+      "country": "South Africa",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Johannesburg"
+    },
+    {
+      "name": "Nairobi",
+      "country": "Kenya",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nairobi"
+    },
+    {
+      "name": "Zanzibar",
+      "country": "Tanzania",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Zanzibar"
+    },
+    {
+      "name": "Arusha",
+      "country": "Tanzania",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Arusha"
+    },
+    {
+      "name": "Accra",
+      "country": "Ghana",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Accra"
+    },
+    {
+      "name": "Lagos",
+      "country": "Nigeria",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Lagos"
+    },
+    {
+      "name": "Tunis",
+      "country": "Tunisia",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tunis"
+    },
+    {
+      "name": "Victoria Falls",
+      "country": "Zimbabwe",
+      "region": "Africa",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Victoria_Falls"
+    },
+    {
+      "name": "Dubai",
+      "country": "United Arab Emirates",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Dubai"
+    },
+    {
+      "name": "Abu Dhabi",
+      "country": "United Arab Emirates",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Abu_Dhabi"
+    },
+    {
+      "name": "Doha",
+      "country": "Qatar",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Doha"
+    },
+    {
+      "name": "Amman",
+      "country": "Jordan",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Amman"
+    },
+    {
+      "name": "Petra",
+      "country": "Jordan",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Petra"
+    },
+    {
+      "name": "Tel Aviv",
+      "country": "Israel",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tel_Aviv"
+    },
+    {
+      "name": "Jerusalem",
+      "country": "Israel",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Jerusalem"
+    },
+    {
+      "name": "Muscat",
+      "country": "Oman",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Muscat"
+    },
+    {
+      "name": "Istanbul",
+      "country": "Turkey",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Istanbul"
+    },
+    {
+      "name": "Cappadocia",
+      "country": "Turkey",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Cappadocia"
+    },
+    {
+      "name": "Antalya",
+      "country": "Turkey",
+      "region": "Middle East",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Antalya"
+    },
+    {
+      "name": "Havana",
+      "country": "Cuba",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Havana"
+    },
+    {
+      "name": "Nassau",
+      "country": "Bahamas",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Nassau"
+    },
+    {
+      "name": "Montego Bay",
+      "country": "Jamaica",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Montego_Bay"
+    },
+    {
+      "name": "Punta Cana",
+      "country": "Dominican Republic",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Punta_Cana"
+    },
+    {
+      "name": "Bridgetown",
+      "country": "Barbados",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Bridgetown"
+    },
+    {
+      "name": "San Juan",
+      "country": "Puerto Rico",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/San_Juan"
+    },
+    {
+      "name": "Aruba",
+      "country": "Aruba",
+      "region": "Caribbean",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Aruba"
+    },
+    {
+      "name": "San Jose",
+      "country": "Costa Rica",
+      "region": "Central America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/San_Jose"
+    },
+    {
+      "name": "Antigua Guatemala",
+      "country": "Guatemala",
+      "region": "Central America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Antigua_Guatemala"
+    },
+    {
+      "name": "Panama City",
+      "country": "Panama",
+      "region": "Central America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Panama_City"
+    },
+    {
+      "name": "Belize City",
+      "country": "Belize",
+      "region": "Central America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Belize_City"
+    },
+    {
+      "name": "Tamarindo",
+      "country": "Costa Rica",
+      "region": "Central America",
+      "wikivoyage_url": "https://en.wikivoyage.org/wiki/Tamarindo"
+    }
+  ]
+}

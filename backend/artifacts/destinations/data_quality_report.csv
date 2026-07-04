@@ -1,0 +1,16 @@
+metric,value
+timestamp,2026-07-04T11:09:57.942047+00:00
+total_destinations,5
+embedded_count,0
+skipped_embedding_count,5
+numbeo_lookup_available,True
+opentripmap_configured,True
+region_count:Europe,5
+missing_field_rate:budget_level,0.0
+missing_field_rate:poi_summary,0.0
+missing_field_rate:wikivoyage_summary,0.0
+missing_field_rate:embedding,0.0
+details_length:min,1113.0
+details_length:max,1617.0
+details_length:mean,1450.2
+details_length:median,1498.0

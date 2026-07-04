@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-07-04T11:09:57.942047+00:00",
+  "total_destinations": 5,
+  "region_counts": {
+    "Europe": 5
+  },
+  "missing_field_rates": {
+    "budget_level": 0.0,
+    "poi_summary": 0.0,
+    "wikivoyage_summary": 0.0,
+    "embedding": 0.0
+  },
+  "details_length_stats": {
+    "min": 1113.0,
+    "max": 1617.0,
+    "mean": 1450.2,
+    "median": 1498.0
+  },
+  "sources_failed_counts": {},
+  "embedded_count": 0,
+  "skipped_embedding_count": 5,
+  "numbeo_lookup_available": true,
+  "opentripmap_configured": true,
+  "embedding_provider_failed": false
+}

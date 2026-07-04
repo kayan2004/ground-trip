@@ -46,6 +46,22 @@ class Settings(BaseSettings):
     open_meteo_geocoding_base_url: str = "https://geocoding-api.open-meteo.com"
     open_meteo_forecast_base_url: str = "https://api.open-meteo.com"
     weather_request_timeout_seconds: float = 20.0
+    destination_seed_manifest_path: str = "data/destination_seed_manifest.json"
+    destination_embedding_version: str = "v1"
+    destination_fetch_timeout_seconds: float = 20.0
+    destination_user_agent: str = (
+        "smart-travel-assistant-destination-ingestion/1.0 "
+        "(contact: kayanabdepbaki@gmail.com)"
+    )
+    destination_max_retries: int = 3
+    destination_retry_backoff_seconds: float = 2.0
+    opentripmap_api_key: str = ""
+    opentripmap_base_url: str = "https://api.opentripmap.com/0.1/en"
+    opentripmap_radius_meters: int = 20000
+    opentripmap_poi_limit: int = 100
+    numbeo_rankings_url: str = (
+        "https://www.numbeo.com/cost-of-living/rankings_current.jsp"
+    )
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
