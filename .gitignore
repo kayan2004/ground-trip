@@ -3,5 +3,7 @@
 notebook
 backend/.venv/
 backend/.uv-cache/
-backend/__pycache__/
+__pycache__/
+*.pyc
 backend/.pytest_cache/
+.claude/
