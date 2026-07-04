@@ -1,0 +1,144 @@
+# CLAUDE.md
+
+Guidance for Claude Code when working in this repository.
+
+## Session memory
+
+Before exploring the codebase, read `.claude/memory/state.md` - a living snapshot of what's
+currently implemented, in progress, or configured that wouldn't be obvious from the code alone
+(e.g. credential state, deferred decisions). `.claude/memory/sessions/` has one dated log per past
+session with more narrative detail if `state.md` isn't enough context.
+
+After a session where something meaningful changed (a feature landed, a non-obvious bug was found,
+a credential/environment fact changed, a design decision was made and deferred), update
+`state.md` and add a dated entry under `sessions/`. See `.claude/memory/README.md` for the full
+convention and what does/doesn't belong there vs. this file vs. code comments.
+
+## What this is
+
+Smart Travel Planner (AI bootcamp Week 4 project, see `brief.md`): a natural-language trip
+request flows through Claude field-extraction → an ML travel-style classifier → a destination
+recommender → pgvector RAG retrieval → live weather (Open-Meteo) → Claude synthesis → Postgres
+persistence → Discord webhook. See `README.md` for the full write-up (labeling rules, chunking
+rationale, model comparison, known gaps).
+
+## Stack
+
+- **Backend**: FastAPI, SQLAlchemy 2.x async (asyncpg), LangGraph, pydantic-settings, PyJWT,
+  pgvector, scikit-learn/joblib, uv for dependency management, Python 3.14.
+- **Frontend**: React 19 + TypeScript + Vite, no router library (manual `pushState`).
+- **Infra**: Docker Compose — `db` (pgvector/pgvector:0.8.2-pg17), `backend`, `frontend` (nginx).
+
+## Running locally
+
+```powershell
+# Backend (from backend/)
+uv run uvicorn main:app --reload
+
+# Frontend (from frontend/)
+npm install
+npm run dev
+
+# Full stack (from repo root)
+docker compose up --build
+```
+
+Backend needs `backend/.env` (copy from `backend/.env.example`) with `DATABASE_URL`,
+`JWT_SECRET_KEY`, `VOYAGE_API_KEY`, `ANTHROPIC_API_KEY`, `DISCORD_WEBHOOK_URL`,
+`FRONTEND_ORIGIN`.
+
+RAG ingestion and eval scripts (from `backend/`):
+
+```powershell
+uv run python scripts/ingest_rag.py       # fetches Wikivoyage pages, embeds, writes to pgvector
+uv run python scripts/evaluate_rag.py     # runs hand-written eval queries, writes artifacts/rag/*
+```
+
+Destination corpus (v2, not yet wired into the agent — see backend/README.md):
+
+```powershell
+uv run alembic upgrade head                          # applies all migrations (every table)
+uv run python scripts/ingest_destinations.py --limit 5  # smoke test; omit --limit for the full ~219
+```
+
+## Architecture
+
+```
+backend/app/
+├── core/       # Settings (pydantic-settings), lifespan singletons, JWT/password hashing
+├── db/         # SQLAlchemy async engine/session, ORM models (users, agent_runs, tool_logs,
+│               #   destination_documents, recommendations, feedback, tag_definitions — all on
+│               #   app.db.base.Base). `destination.py`'s `Destination` model is on its own
+│               #   DeclarativeBase (DestinationCorpusBase) — see alembic/ below
+├── agent/      # LangGraph state machine (graph.py) + BaseTool/ToolRegistry (tools/)
+├── api/routes/ # Thin FastAPI routers, one file per concern, all behind JWT auth
+├── schemas/    # Pydantic models — the validation boundary for every route/tool
+├── services/   # Business logic: classifier, claude (extraction+synthesis+model routing),
+│               #   discord_webhook, live_conditions, rag_ingestion, rag_retrieval,
+│               #   recommendations, voyage_embeddings
+└── prompts/    # Raw prompt templates (request_field_extraction_prompt.txt)
+```
+
+**Lifespan singletons** (`app/core/lifespan.py`, exposed via `app.state.resources`): DB engine,
+session factory, shared `httpx.AsyncClient`, loaded ML model, destination catalog DataFrame,
+tool registry. Routes/services get these via `Depends` or `request.app.state`, never by
+instantiating clients inline.
+
+**LangGraph pipeline** (`app/agent/graph.py`): `initialize → extract_request_fields → classify
+→ recommend_destinations → retrieve_context → live_conditions → synthesize_response`. Every
+node appends to `tool_logs` and `response_sections` in the shared `TripPlannerState` dict, and
+catches its own exceptions — a failed/skipped tool degrades the run to `status="partial"`
+rather than crashing. `run_trip_planner()` (`app/agent/planner.py`) is the entrypoint invoked
+from `services/agent_runs.py`.
+
+**Tools** (`app/agent/tools/`): each tool is a `BaseTool` subclass with a `name`, Pydantic
+`input_model`, and async `arun(payload, context)`. Registered in `registry.py`
+(`build_default_tool_registry`) — this is the allowlist; nothing outside it is callable.
+
+**Two-model routing** (`services/claude.py`): `choose_anthropic_model()` picks
+`anthropic_fast_model` (Haiku) vs `anthropic_strong_model` (Sonnet) based on prompt length,
+number of failed tools, and response richness. Fast model does field extraction; strong model
+does final synthesis.
+
+## Conventions to follow when editing
+
+- **Pydantic at every boundary**: HTTP bodies, tool inputs/outputs, LLM structured output all go
+  through a schema in `app/schemas/`. Don't add ad-hoc dict validation elsewhere.
+- **Async everywhere**: routes, services, DB calls (asyncpg), HTTP calls
+  (`httpx.AsyncClient`, shared instance from lifespan — never construct a new client per
+  request). No `requests`, no `time.sleep` in a request path.
+- **No globals for state**: singletons live on `app.state.resources` and flow through
+  `Depends()` or `ToolContext`, not module-level variables.
+- **Settings only through `app/core/config.py`**: no `os.getenv` scattered in code; add new
+  config keys to the `Settings` class and `.env.example`.
+- **Tool failures are data, not exceptions**: a tool failing inside the LangGraph should produce
+  a `tool_logs` entry with `status="failed"` and let the graph continue — see any `_node`
+  function in `graph.py` for the pattern.
+- **New agent tool checklist**: add a Pydantic input/output schema in `schemas/`, implement a
+  `BaseTool` subclass in `agent/tools/`, register it in `registry.py`, add a graph node in
+  `graph.py` that logs to `tool_logs`/`response_sections`, and (if user-facing) a route in
+  `api/routes/`.
+
+## Known gaps (see README "Known Gaps" for the full list)
+
+No automated tests or CI, no LangSmith/tracing, no per-step token/cost logging, no webhook
+retry-with-backoff. Be aware of these when asked to "add tests" or "wire up retries" — there's no
+existing pattern to extend, you'd be establishing the first one.
+
+All tables are now Alembic-managed (`backend/alembic/`); `Base.metadata.create_all()` has been
+removed from startup. `target_metadata` in `alembic/env.py` is a list of both declarative bases
+(`app.db.base.Base` and `app.db.models.destination.DestinationCorpusBase`). See backend/README.md's
+"Database Migrations (Alembic)" section for the migration chain and the stamp sequence needed on a
+DB that predates this change.
+
+## Data / artifacts (don't regenerate casually)
+
+- `backend/data/travel_destinations_labeled.csv` — the hand-labeled 200-row training set backing
+  both the ML classifier and the recommender.
+- `backend/artifacts/ml/best_model.joblib` — trained SVC, loaded once at startup
+  (`services/classifier.py`). Retraining lives in `backend/notebook/ml.ipynb`, not in app code.
+- `backend/artifacts/rag/`, `backend/data/rag_eval_queries.json` — retrieval eval fixtures/output
+  from `scripts/evaluate_rag.py`.
+- `backend/data/destination_seed_manifest.json` — versioned seed list (219 destinations) for the
+  `destinations` corpus; `backend/artifacts/destinations/data_quality_report.*` is its pipeline
+  output, from `scripts/ingest_destinations.py`.

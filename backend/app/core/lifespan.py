@@ -5,7 +5,6 @@ from fastapi import FastAPI
 import httpx
 
 from app.agent.tools.registry import build_default_tool_registry
-from app.db.init_db import init_db
 from app.services.classifier import load_travel_style_model
 from app.services.recommendations import load_destination_catalog
 from .config import get_settings
@@ -32,8 +31,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         "destination_catalog": destination_catalog,
         "tool_registry": tool_registry,
     }
-
-    await init_db(db_engine)
 
     yield
 

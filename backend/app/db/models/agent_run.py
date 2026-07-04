@@ -19,6 +19,10 @@ class AgentRun(Base):
         server_default=func.now(),
         nullable=False,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="agent_runs")
     tool_logs = relationship("ToolLog", back_populates="agent_run", cascade="all, delete-orphan")
+    recommendations = relationship(
+        "Recommendation", back_populates="agent_run", cascade="all, delete-orphan"
+    )
