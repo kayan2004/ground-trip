@@ -12,6 +12,7 @@ from app.services.llm import (
     choose_model,
     extract_request_fields,
     fast_model_name,
+    resolve_model_name,
     synthesize_trip_response,
 )
 
@@ -36,12 +37,13 @@ async def test_claude_route(
         )
 
     settings = request.app.state.settings
-    selected_model = choose_model(
+    model_tier = choose_model(
         settings,
         prompt=payload.prompt,
         response_sections=payload.response_sections,
         tool_logs=payload.tool_logs,
     )
+    selected_model = resolve_model_name(settings, model_tier)
     generated_text = await synthesize_trip_response(
         http_client,
         settings,

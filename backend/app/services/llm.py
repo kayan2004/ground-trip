@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.schemas.classifier import TravelStylePredictionRequest
 from app.schemas.claude import ExtractedRequestFields
 from app.schemas.clustering import ClusterNamingProposal
-from app.services.llm_providers import _raise_for_status_with_body, get_llm_provider
+from app.services.llm_providers import Message, ModelTier, get_llm_provider, raise_for_status_with_body
 import httpx
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
@@ -33,7 +33,7 @@ async def list_anthropic_models(
         },
         timeout=settings.weather_request_timeout_seconds,
     )
-    _raise_for_status_with_body(response, context="Anthropic model listing")
+    raise_for_status_with_body(response, context="Anthropic model listing")
     return response.json()
 
 
@@ -49,10 +49,8 @@ def strong_model_name(settings: Settings) -> str:
     return settings.anthropic_strong_model
 
 
-def _generation_settings(settings: Settings) -> tuple[int, float]:
-    if settings.llm_provider == "gemini":
-        return settings.gemini_max_tokens, settings.gemini_temperature
-    return settings.anthropic_max_tokens, settings.anthropic_temperature
+def resolve_model_name(settings: Settings, model_tier: ModelTier) -> str:
+    return strong_model_name(settings) if model_tier == "strong" else fast_model_name(settings)
 
 
 def choose_model(
@@ -61,7 +59,7 @@ def choose_model(
     prompt: str,
     response_sections: list[str],
     tool_logs: list[dict[str, str]],
-) -> str:
+) -> ModelTier:
     failed_tools = sum(1 for tool_log in tool_logs if tool_log["status"] == "failed")
     long_prompt = len(prompt) > 220
     rich_context = len(response_sections) >= 4
@@ -70,8 +68,8 @@ def choose_model(
     )
 
     if failed_tools > 0 or long_prompt or rich_context or verbose_tool_payloads:
-        return strong_model_name(settings)
-    return fast_model_name(settings)
+        return "strong"
+    return "fast"
 
 
 async def extract_request_fields(
@@ -80,21 +78,20 @@ async def extract_request_fields(
     *,
     prompt: str,
 ) -> ExtractedRequestFields:
-    provider = get_llm_provider(settings)
-    final_text = await provider.generate(
-        http_client,
-        settings,
-        system=(
-            "You extract structured travel-planning fields from user prompts. "
-            "Return strict JSON only. "
-            "Do not invent a destination if one is not clearly implied. "
-            "Follow the extraction spec exactly."
-        ),
-        user_content=_build_request_field_extraction_prompt(prompt),
-        model=fast_model_name(settings),
-        max_tokens=500,
-        temperature=0.0,
-    )
+    provider = get_llm_provider(settings, http_client=http_client)
+    messages: list[Message] = [
+        {
+            "role": "system",
+            "content": (
+                "You extract structured travel-planning fields from user prompts. "
+                "Return strict JSON only. "
+                "Do not invent a destination if one is not clearly implied. "
+                "Follow the extraction spec exactly."
+            ),
+        },
+        {"role": "user", "content": _build_request_field_extraction_prompt(prompt)},
+    ]
+    final_text = await provider.complete(messages, "fast", max_tokens=500, temperature=0.0)
 
     if not final_text:
         raise RuntimeError("The LLM returned an empty extraction response.")
@@ -139,32 +136,33 @@ async def synthesize_trip_response(
     if destination_name is not None:
         context_lines.append(f"Destination under discussion: {destination_name}")
 
-    selected_model = choose_model(
+    model_tier = choose_model(
         settings,
         prompt=prompt,
         response_sections=response_sections,
         tool_logs=tool_logs,
     )
-    max_tokens, temperature = _generation_settings(settings)
 
-    provider = get_llm_provider(settings)
-    final_text = await provider.generate(
-        http_client,
-        settings,
-        system=(
-            "You are a concise travel-planning assistant. "
-            "Use the provided tool outputs to produce a helpful recommendation. "
-            "If some tool output failed, acknowledge uncertainty briefly and continue."
-        ),
-        user_content=(
-            f"User prompt: {prompt}\n\n"
-            + "\n".join(context_lines)
-            + "\n\nWrite one polished travel-planning answer in 1-3 short paragraphs."
-        ),
-        model=selected_model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+    provider = get_llm_provider(settings, http_client=http_client)
+    messages: list[Message] = [
+        {
+            "role": "system",
+            "content": (
+                "You are a concise travel-planning assistant. "
+                "Use the provided tool outputs to produce a helpful recommendation. "
+                "If some tool output failed, acknowledge uncertainty briefly and continue."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"User prompt: {prompt}\n\n"
+                + "\n".join(context_lines)
+                + "\n\nWrite one polished travel-planning answer in 1-3 short paragraphs."
+            ),
+        },
+    ]
+    final_text = await provider.complete(messages, model_tier)
 
     if not final_text:
         raise RuntimeError("The LLM returned an empty response.")
@@ -195,31 +193,33 @@ async def propose_cluster_tag(
         for entry in example_destinations
     )
 
-    provider = get_llm_provider(settings)
-    final_text = await provider.generate(
-        http_client,
-        settings,
-        system=(
-            "You label clusters of travel destinations for a recommendation "
-            "system. Given representative destinations and clustering "
-            "quality metrics for one cluster, propose a short, specific "
-            "travel-style tag name (2-4 words, title case, no generic "
-            "words like 'Destinations' or 'Places') and a one-paragraph "
-            "description of what unifies this cluster. Return strict "
-            'JSON only: {"tag_name": "...", "description": "..."}. '
-            "Do not invent facts not supported by the examples."
-        ),
-        user_content=(
-            f"Cluster {cluster_id} - {len(example_destinations)} "
-            f"representative destinations (highest soft-membership "
-            f"weight first):\n{examples_block}\n\n"
-            f"Clustering quality metrics for this cluster: "
-            f"{json.dumps(quality_metrics)}"
-        ),
-        model=strong_model_name(settings),
-        max_tokens=400,
-        temperature=0.2,
-    )
+    provider = get_llm_provider(settings, http_client=http_client)
+    messages: list[Message] = [
+        {
+            "role": "system",
+            "content": (
+                "You label clusters of travel destinations for a recommendation "
+                "system. Given representative destinations and clustering "
+                "quality metrics for one cluster, propose a short, specific "
+                "travel-style tag name (2-4 words, title case, no generic "
+                "words like 'Destinations' or 'Places') and a one-paragraph "
+                "description of what unifies this cluster. Return strict "
+                'JSON only: {"tag_name": "...", "description": "..."}. '
+                "Do not invent facts not supported by the examples."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Cluster {cluster_id} - {len(example_destinations)} "
+                f"representative destinations (highest soft-membership "
+                f"weight first):\n{examples_block}\n\n"
+                f"Clustering quality metrics for this cluster: "
+                f"{json.dumps(quality_metrics)}"
+            ),
+        },
+    ]
+    final_text = await provider.complete(messages, "strong", max_tokens=400, temperature=0.2)
 
     if not final_text:
         raise RuntimeError(f"The LLM returned an empty naming response for cluster {cluster_id}.")
