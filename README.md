@@ -465,6 +465,7 @@ The system uses one Postgres database for:
 - agent runs
 - tool logs
 - destination embeddings
+- recommendation slates + anonymous thumbs up/down feedback
 
 ### Current Tables
 
@@ -472,6 +473,8 @@ The system uses one Postgres database for:
 - `agent_runs`
 - `tool_logs`
 - `destination_documents`
+- `recommendations` - the full ranked slate per run, with a feature snapshot per candidate
+- `feedback` - anonymous, session-uuid-keyed thumbs up/down on a recommendation
 
 At minimum, persisted data includes:
 
@@ -480,6 +483,8 @@ At minimum, persisted data includes:
 - what the agent answered
 - which tools fired
 - when the run happened
+- which destinations were recommended, in what order, with what score
+- whether an anonymous session rated a given recommendation useful
 
 ## Auth
 

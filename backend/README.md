@@ -382,8 +382,10 @@ list instead, verified against the live API.
 
 ## ML Feedback Schema (`recommendations`, `feedback`, `tag_definitions`)
 
-Schema-only groundwork for learning-to-rank over recommended destinations. Not yet wired into the
-agent or any route - no code writes to these tables yet.
+Groundwork for learning-to-rank over recommended destinations. `recommendations` and `feedback`
+were wired up in the 2026-07-06 session - see "Feedback Data Model (now wired up)" below.
+`tag_definitions` remains schema-only, pending clustering Phase 2/3 (see "Destination Clustering"
+below).
 
 - **`recommendations`** (`app/db/models/recommendation.py`) - the **full ranked slate** shown for
   an agent run, one row per destination position, not just the destination the user picked. This
@@ -415,7 +417,64 @@ agent or any route - no code writes to these tables yet.
 `recommendations.destination_id` has no ORM `relationship()` to `Destination`: that model lives on
 its own declarative base/registry (see "Why `Destination` stays on its own declarative base"
 above), so `relationship()` can't resolve it by class name across bases. The FK column and its DB
-constraint exist regardless - only the ORM-level convenience accessor is skipped.
+constraint exist regardless, but this cross-base split has a sharper consequence than just a
+missing convenience accessor - see "Inserting `Recommendation` rows: use Core `insert()`, not
+`session.add()`" below, discovered when this table's writes were actually wired up.
+
+## Feedback Data Model (now wired up)
+
+As of the 2026-07-06 session, `recommendations` and `feedback` are no longer schema-only:
+
+- **`recommendations`**: one row per candidate in the ranked slate the pre-filter+cosine node
+  returned for a given `agent_runs` row - not just the top result. `features` is a JSONB snapshot
+  captured once, at recommend time (`cosine_sim`, `tag_match_count`, `budget_delta`,
+  `region_match`) - it is never recomputed later, so it stays an honest record of what the model
+  saw at decision time even if the underlying destination's data changes afterward. Persisted in
+  `app/services/agent_runs.py::create_agent_run`, right after the `agent_runs` row is committed
+  (its `id` is the FK target, so persistence can only happen after that commit) - see
+  `app/services/recommendation_persistence.py::persist_recommendation_slate`. A persistence
+  failure is logged as its own `tool_logs` entry (`recommendation_persistence`, `status="failed"`)
+  and does not fail the user-facing response, matching the existing Discord-webhook-delivery
+  pattern in the same file.
+- **`feedback`**: anonymous thumbs up/down, one row per `(recommendation_id, session_uuid)` -
+  enforced by a real Postgres unique constraint (`uq_feedback_recommendation_session`, added in
+  the `b1f4a9d3e7c2` migration), not just application-level deduplication. Re-submitting the same
+  `(recommendation_id, session_uuid)` pair updates the existing row's `verdict` via a Postgres
+  `INSERT ... ON CONFLICT ... DO UPDATE` upsert (`app/services/feedback.py::submit_feedback`)
+  rather than creating a duplicate. `channel` (plain string, default `"web"`) exists so a future
+  non-web feedback source (a CLI, a Discord reaction) can reuse this table without a migration.
+- **`POST /feedback`** takes `{recommendation_id, session_uuid, verdict}` (`verdict` is `+1` or
+  `-1`) and requires **no auth** - `session_uuid` is a random UUID the frontend generates once and
+  stores in `localStorage`, never tied to a `users` row. This is the only no-PII, no-auth mutation
+  endpoint in the API by design.
+- **Slate → training-row mapping**: each `recommendations` row is a candidate training example -
+  its `features` JSONB is the feature vector (X), and the associated `feedback.verdict` (when
+  present) is the label (y). Rows with no matching `feedback` row are unlabeled candidates -
+  useful for future negative sampling or exposure-weighting, not yet consumed by anything. Nothing
+  currently trains on this table; populating it is the whole point of this session's work,
+  actually wiring up a learning-to-rank model on top of it is still future work.
+
+### Inserting `Recommendation` rows: use Core `insert()`, not `session.add()`
+
+Discovered while wiring up persistence (not previously exercised - nothing had ever written a
+`Recommendation` row via the ORM before this session): `Recommendation.destination_id`'s
+`ForeignKey("destinations.id")` can **never** resolve through SQLAlchemy's ORM metadata lookup,
+because `Destination` lives on a separate `DeclarativeBase`/`MetaData` (`DestinationCorpusBase`)
+from `Recommendation` (`app.db.base.Base`). A normal ORM write (`session.add()`/`session.add_all()`
+followed by `session.commit()`, or an ORM bulk-insert given a list of param dicts) triggers
+SQLAlchemy's flush-time `_sorted_tables` dependency-graph computation, which needs to resolve
+**every** FK target of the flushed mapper's table - including ones outside the current flush - and
+raises `sqlalchemy.exc.NoReferencedTableError` when it can't.
+
+The fix, used in `persist_recommendation_slate`: bake every row into a single Core
+`insert(Recommendation).values([...]).returning(Recommendation)` statement (not `session.add()`,
+and not passing rows as a separate `execute()` params list - that still hits the same bulk-insert
+code path) - this bypasses the ORM flush machinery entirely while still returning fully-populated
+`Recommendation` instances via `RETURNING`. Read-only queries (a plain `select()` with an explicit
+`.join()` onclause, like `get_recommendations_for_agent_run`) are unaffected - this is a
+flush/write-path-only issue. Do not "fix" this by changing `Recommendation`'s FK declaration or
+merging the two declarative bases - that's a real, deliberate conceptual split (see "Why
+`Destination` stays on its own declarative base" above), not a mistake to undo.
 
 ## Destination Clustering (`scripts/cluster_destinations.py`)
 
