@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, func
+from sqlalchemy import DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,9 @@ class Feedback(Base):
     # without an authenticated session.
     session_uuid: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     verdict: Mapped[int] = mapped_column(SmallInteger, nullable=False)  # +1 / -1
+    # Plain string, not an enum - lets future non-web channels (a CLI, a
+    # Discord reaction) reuse this table without a migration.
+    channel: Mapped[str] = mapped_column(String(50), nullable=False, server_default="web")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
