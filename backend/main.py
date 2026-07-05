@@ -8,6 +8,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.claude import router as claude_router
 from app.api.routes.classifier import router as classifier_router
 from app.api.routes.discord_webhook import router as discord_webhook_router
+from app.api.routes.feedback import router as feedback_router
 from app.api.routes.health import router as health_router
 from app.api.routes.live_conditions import router as live_conditions_router
 from app.api.routes.rag_retrieval import router as rag_retrieval_router
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     application.include_router(claude_router)
     application.include_router(classifier_router)
     application.include_router(discord_webhook_router)
+    application.include_router(feedback_router)
     application.include_router(health_router)
     application.include_router(live_conditions_router)
     application.include_router(rag_retrieval_router)

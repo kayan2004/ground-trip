@@ -930,7 +930,7 @@ uv run python - <<'PY'
 import asyncio
 import uuid
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, insert, select
 
 from app.core.config import get_settings
 from app.db.models.agent_run import AgentRun
@@ -961,29 +961,37 @@ async def main() -> None:
         session.add(agent_run)
         await session.commit()
         await session.refresh(agent_run)
+        agent_run_id = agent_run.id
 
-        recommendation = Recommendation(
-            agent_run_id=agent_run.id,
-            destination_id=destination.id,
-            rank_position=1,
-            score=0.5,
-            features={"cosine_sim": 0.5, "tag_match_count": 0, "budget_delta": None, "region_match": True},
+        # Core-style insert (not session.add) - same cross-metadata FK issue
+        # as Task 3: Recommendation.destination_id can't resolve through the
+        # ORM flush's dependency-sort since Destination lives on a separate
+        # DeclarativeBase.
+        insert_stmt = (
+            insert(Recommendation)
+            .values(
+                agent_run_id=agent_run_id,
+                destination_id=destination.id,
+                rank_position=1,
+                score=0.5,
+                features={"cosine_sim": 0.5, "tag_match_count": 0, "budget_delta": None, "region_match": True},
+            )
+            .returning(Recommendation.id)
         )
-        session.add(recommendation)
+        recommendation_id = (await session.execute(insert_stmt)).scalar_one()
         await session.commit()
-        await session.refresh(recommendation)
 
         session_uuid = uuid.uuid4()
 
         first = await submit_feedback(
             session,
-            FeedbackCreate(recommendation_id=recommendation.id, session_uuid=session_uuid, verdict=1),
+            FeedbackCreate(recommendation_id=recommendation_id, session_uuid=session_uuid, verdict=1),
         )
         assert first.verdict == 1, first
 
         second = await submit_feedback(
             session,
-            FeedbackCreate(recommendation_id=recommendation.id, session_uuid=session_uuid, verdict=-1),
+            FeedbackCreate(recommendation_id=recommendation_id, session_uuid=session_uuid, verdict=-1),
         )
         assert second.verdict == -1, second
         assert second.id == first.id, "resubmit should update the same row, not insert a new one"
@@ -991,12 +999,19 @@ async def main() -> None:
         row_count = (
             await session.execute(
                 select(func.count()).select_from(Feedback).where(
-                    Feedback.recommendation_id == recommendation.id
+                    Feedback.recommendation_id == recommendation_id
                 )
             )
         ).scalar_one()
         assert row_count == 1, f"expected exactly 1 feedback row, got {row_count}"
 
+        # This intentionally triggers submit_feedback's except-branch, which
+        # calls session.rollback() - that expires every ORM object already
+        # loaded in this session (agent_run included), regardless of
+        # expire_on_commit=False. Everything needed for cleanup below is
+        # already captured in plain Python variables (agent_run_id,
+        # recommendation_id), so accessing agent_run.id again afterward is
+        # avoided entirely.
         try:
             await submit_feedback(
                 session,
@@ -1006,10 +1021,10 @@ async def main() -> None:
         except RecommendationNotFoundError:
             pass
 
-        # Clean up.
-        await session.execute(delete(Feedback).where(Feedback.recommendation_id == recommendation.id))
-        await session.execute(delete(Recommendation).where(Recommendation.id == recommendation.id))
-        await session.execute(delete(AgentRun).where(AgentRun.id == agent_run.id))
+        # Clean up (plain-variable ids only).
+        await session.execute(delete(Feedback).where(Feedback.recommendation_id == recommendation_id))
+        await session.execute(delete(Recommendation).where(Recommendation.id == recommendation_id))
+        await session.execute(delete(AgentRun).where(AgentRun.id == agent_run_id))
         await session.commit()
 
     await engine.dispose()
