@@ -332,12 +332,14 @@ git commit -m "feat(recommendations): add RecommendationRead and feedback schema
 
 - [ ] **Step 1: Write the service**
 
+**Important, discovered during this task's own verification (not in the original plan draft):** `Recommendation.destination_id`'s `ForeignKey("destinations.id")` can **never** resolve through SQLAlchemy's ORM metadata lookup, because `Destination` lives on a separate `DeclarativeBase`/`MetaData` (`DestinationCorpusBase`) from `Recommendation` (`app.db.base.Base`). A normal ORM write (`session.add(row)` / `session.add_all(rows)` followed by `session.commit()`, or an ORM bulk-insert given a list of param dicts) triggers SQLAlchemy's flush-time `_sorted_tables` dependency-graph computation, which needs to resolve **every** FK target of the flushed mapper's table — including ones outside the current flush — and raises `sqlalchemy.exc.NoReferencedTableError` when it can't. This has been latent since the `recommendations` table was created (an earlier session) because nothing ever tried to INSERT a `Recommendation` row via the ORM before this task. The fix, confirmed empirically: bake every row into a single Core `insert(Recommendation).values([...]).returning(Recommendation)` statement (not `session.add()`, and not passing rows as a separate `execute()` params list — that still hits the same bulk-insert code path) — this bypasses the ORM flush machinery entirely while still returning fully-populated `Recommendation` instances via `RETURNING`. Do not "fix" this by changing the `Recommendation` model's FK declaration (out of scope, touches an already-migrated model from a prior session) — this call-site-only fix is sufficient and minimal.
+
 Create `backend/app/services/recommendation_persistence.py`:
 
 ```python
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.destination import Destination
@@ -353,19 +355,20 @@ async def persist_recommendation_slate(
     if not recommended_destinations:
         return []
 
-    rows = [
-        Recommendation(
-            agent_run_id=agent_run_id,
-            destination_id=uuid.UUID(item["destination_id"]),
-            rank_position=item["rank_position"],
-            score=item["score"],
-            features=item["features"],
-        )
+    values = [
+        {
+            "agent_run_id": agent_run_id,
+            "destination_id": uuid.UUID(item["destination_id"]),
+            "rank_position": item["rank_position"],
+            "score": item["score"],
+            "features": item["features"],
+        }
         for item in recommended_destinations
     ]
-    session.add_all(rows)
+    statement = insert(Recommendation).values(values).returning(Recommendation)
+    result = await session.execute(statement)
     await session.commit()
-    return rows
+    return list(result.scalars().all())
 
 
 async def get_recommendations_for_agent_run(
@@ -399,7 +402,7 @@ Note for context (not a step to act on): `Recommendation` and `Destination` live
 
 - [ ] **Step 2: Verify against the real dev database**
 
-This creates one throwaway `agent_runs` row (tied to a real existing user) and two throwaway `destinations`-backed recommendation rows, round-trips them through both functions, then deletes everything it created. Run (from `backend/`):
+This creates one throwaway `agent_runs` row (tied to a real existing user) and two throwaway `destinations`-backed recommendation rows, round-trips them through both functions, then deletes everything it created. Note the `ToolLog`/`Feedback` imports below marked `# noqa: F401` - they're unused directly, but importing them registers those mappers on `Base`'s shared registry before `AgentRun`'s relationships are configured; without them you'll hit an unrelated `KeyError`/`InvalidRequestError` from SQLAlchemy's string-based `relationship()` resolution (a pre-existing characteristic of this codebase's models, not a bug introduced here - the real app registers every model via its own import chain before anything queries `AgentRun`). Run (from `backend/`):
 
 ```bash
 uv run python - <<'PY'
@@ -411,7 +414,9 @@ from sqlalchemy import delete, select
 from app.core.config import get_settings
 from app.db.models.agent_run import AgentRun
 from app.db.models.destination import Destination
+from app.db.models.feedback import Feedback  # noqa: F401 - registers Recommendation.feedback
 from app.db.models.recommendation import Recommendation
+from app.db.models.tool_log import ToolLog  # noqa: F401 - registers AgentRun.tool_logs
 from app.db.models.user import User
 from app.db.session import create_db_engine, create_session_factory
 from app.services.recommendation_persistence import (
@@ -719,6 +724,7 @@ from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import build_default_tool_registry
 from app.core.config import get_settings
 from app.db.models.agent_run import AgentRun
+from app.db.models.feedback import Feedback  # noqa: F401 - registers Recommendation.feedback
 from app.db.models.recommendation import Recommendation
 from app.db.models.tool_log import ToolLog
 from app.db.models.user import User
@@ -931,6 +937,7 @@ from app.db.models.agent_run import AgentRun
 from app.db.models.destination import Destination
 from app.db.models.feedback import Feedback
 from app.db.models.recommendation import Recommendation
+from app.db.models.tool_log import ToolLog  # noqa: F401 - registers AgentRun.tool_logs
 from app.db.models.user import User
 from app.db.session import create_db_engine, create_session_factory
 from app.schemas.feedback import FeedbackCreate
