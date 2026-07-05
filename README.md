@@ -437,13 +437,17 @@ The LangGraph planner uses the registered tool registry only. Tools are not exec
 
 ## Two-Model Strategy
 
-The project routes different LLM work to different model tiers.
+The project routes different LLM work to different model tiers, behind a vendor-agnostic
+`LLMProvider` interface (`app/services/llm_providers/`) - see `backend/README.md`'s
+"Provider-Agnostic LLM Layer" for the full design and why it exists (provider lock-in, cost).
+`LLM_PROVIDER` (default `gemini`) selects the vendor; `anthropic` remains fully implemented and
+selectable, just not the default.
 
 Current strategy:
 
-- **Fast model** (`anthropic_fast_model`)
+- **Fast model** (`gemini_fast_model` / `anthropic_fast_model`)
   - used for extraction / mechanical work
-- **Strong model** (`anthropic_strong_model`)
+- **Strong model** (`gemini_strong_model` / `anthropic_strong_model`)
   - used for final synthesis when the task is longer, richer, or noisier
 
 This matches the spirit of the brief.

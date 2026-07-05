@@ -578,33 +578,103 @@ clusters.
 ## Provider-Agnostic LLM Layer
 
 All three LLM call sites (field extraction, trip synthesis, offline cluster naming) go through
-`app/services/llm_providers.py`'s `LLMProvider` interface rather than hardcoding Anthropic's REST
-shape. `LLM_PROVIDER` (`anthropic` or `gemini`, default `anthropic`) is one global switch - it is
-not a per-call-site setting and there is no automatic fallback between providers. Set both
-providers' credentials if you want to be able to switch without restarting with different env
-vars, or just the one you're using.
+`app/services/llm_providers/`'s `LLMProvider` protocol rather than calling either vendor directly.
+The interface is a single method:
 
-### Gemini / Gemma 4
+```python
+async def complete(self, messages: list[Message], model_tier: ModelTier, **opts: object) -> str: ...
+```
 
-Gemma 4 (Google's open-weight model family, Apache 2.0, released April 2026) is served through
-the same Gemini Developer API used for proprietary Gemini models. Configure:
+`messages` is a list of `{"role": "system" | "user", "content": str}` dicts; `model_tier` is the
+literal `"fast"` or `"strong"` - each provider maps that tier to its own configured model name
+internally, so callers never reference a concrete model string. `**opts` lets a call site override
+`max_tokens`/`temperature` for that one call (`extract_request_fields` and `propose_cluster_tag`
+both do this; `synthesize_trip_response` doesn't, and falls back to the provider's configured
+defaults). `app/services/llm.py`'s three orchestration functions (`extract_request_fields`,
+`synthesize_trip_response`, `propose_cluster_tag`) only depend on this protocol, never on a
+specific provider's SDK or wire format.
+
+### Why an abstraction at all (lock-in, cost)
+
+Two vendor-specific pain points motivated this, both hit in earlier sessions on this project:
+
+- **Provider lock-in risk.** The Anthropic API key on this project ran out of credit mid-session
+  (see `.claude/memory/` for the incident) with no fallback - every LLM call in the app failed at
+  once. A second, independently-billed provider behind the same interface means a billing problem
+  with one vendor doesn't take down request field extraction and trip synthesis together.
+- **Cost/latency tuning per tier, not per vendor.** The existing fast/strong model-tier split
+  (`choose_model()` in `app/services/llm.py`) already routes cheap, high-volume calls (extraction)
+  and expensive, quality-sensitive calls (synthesis, cluster naming) differently. Keeping that
+  routing at the tier level - not hardcoded model names - means swapping the underlying vendor
+  entirely (this session: Anthropic → Gemini as the default) is a config change, not a rewrite of
+  the routing logic.
+
+`LLM_PROVIDER` (`anthropic` or `gemini`, **default `gemini`**) is one global switch - it is not a
+per-call-site setting and there is no automatic fallback between providers. Set both providers'
+credentials if you want to be able to switch without restarting with different env vars, or just
+the one you're using.
+
+### How to switch providers
+
+Set one env var and restart - no code changes:
+
+```
+LLM_PROVIDER=gemini     # or: anthropic
+```
+
+Everything else (`GEMINI_FAST_MODEL`/`GEMINI_STRONG_MODEL` vs `ANTHROPIC_FAST_MODEL`/
+`ANTHROPIC_STRONG_MODEL`, per-provider `_MAX_TOKENS`/`_TEMPERATURE`) is already configured for
+both providers side by side in `.env`/`.env.example`, so the inactive provider's settings just sit
+unused rather than needing to be added when you switch.
+
+### Gemini (default provider)
+
+Implemented in `app/services/llm_providers/gemini_provider.py` using the official
+[`google-genai`](https://pypi.org/project/google-genai/) Python SDK (`client.aio.models.generate_content`)
+rather than raw REST. Configure:
 
 ```
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
-GEMINI_FAST_MODEL=gemma-4-26b-a4b-it   # 26B MoE, 4B active - extraction
-GEMINI_STRONG_MODEL=gemma-4-31b-it     # 31B dense - synthesis, cluster naming
+GEMINI_FAST_MODEL=gemini-3.1-flash-lite   # extraction - cheap, high-volume
+GEMINI_STRONG_MODEL=gemini-3.1-pro        # synthesis, cluster naming - quality-sensitive
 ```
 
 Generate a **restricted** API key (scoped to the Generative Language API) at
 [Google AI Studio](https://aistudio.google.com/apikey) - Google is phasing out unrestricted
 Gemini API keys during 2026 (restricted keys work until September 2026; after that, only
-service-account-bound auth keys are accepted).
+service-account-bound auth keys are accepted). **The key's Google Cloud project also needs the
+Generative Language API enabled** - a key that syntactically works but belongs to a project where
+the API was never turned on fails with `403 PERMISSION_DENIED (SERVICE_DISABLED)` at call time, not
+at key-creation time. Confirmed hitting this live during the switchover - graceful degradation
+(see `app/agent/graph.py`'s per-node `try/except`) caught it and the run still completed with
+`status="partial"`, but no successful live Gemini call has been verified yet in this environment;
+that's a one-click fix in Google Cloud Console, not a code issue.
+
+**Transport tradeoff, deliberately accepted:** every other HTTP call in this app reuses one shared
+`httpx.AsyncClient` from `app/core/lifespan.py` (see `CLAUDE.md`'s async conventions). The
+`google-genai` SDK manages its own transport internally and cannot be handed that shared client.
+`GeminiProvider` works around this by memoizing the SDK's `genai.Client` per API key
+(`functools.lru_cache` in `gemini_provider.py`) so it's constructed once per process rather than
+once per call, not once per request - but it is still a second, separate connection pool from the
+rest of the app's outbound HTTP traffic.
+
+### Anthropic (kept in place, currently unused)
+
+Implemented in `app/services/llm_providers/anthropic_provider.py` via plain REST over the shared
+`httpx.AsyncClient` - no Anthropic SDK dependency. Selecting it back is a config change:
+
+```
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+ANTHROPIC_FAST_MODEL=claude-haiku-4-5
+ANTHROPIC_STRONG_MODEL=claude-sonnet-4-5
+```
 
 ### Adding a third provider
 
-Implement the `LLMProvider` protocol in `app/services/llm_providers.py` (one `generate()` method
-translating the provider-agnostic call into that provider's REST shape) and add it to
-`get_llm_provider()`'s dispatch. `app/services/llm.py`'s three orchestration functions
-(`extract_request_fields`, `synthesize_trip_response`, `propose_cluster_tag`) need no changes -
-they only depend on the `LLMProvider` interface, not any specific provider.
+Implement the `LLMProvider` protocol (`app/services/llm_providers/protocol.py`) as a new module in
+`app/services/llm_providers/` - one `complete()` method translating the provider-agnostic
+`messages`/`model_tier` call into that provider's own request shape - and add it to
+`get_llm_provider()`'s dispatch (`app/services/llm_providers/factory.py`). `app/services/llm.py`'s
+three orchestration functions need no changes.
