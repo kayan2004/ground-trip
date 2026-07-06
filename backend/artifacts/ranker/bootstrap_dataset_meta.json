@@ -1,0 +1,9 @@
+{
+  "warning": "COLD-START PRIOR: synthetic query profiles + a heuristic label function, not real user feedback. See backend/README.md's 'Learning-to-Rank' section before treating this as ground truth.",
+  "generated_at": "2026-07-06T10:23:41.386449+00:00",
+  "n_seed_queries": 150,
+  "n_rows": 2250,
+  "query_perturbation_sigma": 0.015,
+  "label_noise_sigma": 0.15,
+  "label_formula": "raw = 3.0*cosine_sim + 0.5*min(tag_match_count, 2) + 0.5*region_match - 0.4*abs(budget_delta or 0), then raw += N(0, 0.15) noise, then bucketed into 4 grades (0-3) via quantiles over the full bootstrap dataset."
+}
