@@ -130,9 +130,14 @@ cluster naming. Provider dispatch lives in `services/llm_providers.py`'s `LLMPro
 
 ## Known gaps (see README "Known Gaps" for the full list)
 
-No automated tests or CI, no LangSmith/tracing, no per-step token/cost logging, no webhook
-retry-with-backoff. Be aware of these when asked to "add tests" or "wire up retries" — there's no
-existing pattern to extend, you'd be establishing the first one.
+No LangSmith/tracing, no per-step token/cost logging, no webhook retry-with-backoff. Be aware of
+these when asked to "wire up retries" — there's no existing pattern for those to extend.
+
+**Automated tests + CI now exist** (`backend/tests/`, `.github/workflows/ci.yml`) - pytest +
+pytest-asyncio against a dedicated test Postgres (never the dev DB), truncate-based isolation
+(rollback-based isolation does NOT work here - several services commit internally), every external
+HTTP boundary mocked. `backend/tests/conftest.py` is the pattern to extend for new test coverage;
+see `backend/README.md`'s "Running Tests" section for the full write-up.
 
 All tables are now Alembic-managed (`backend/alembic/`); `Base.metadata.create_all()` has been
 removed from startup. `target_metadata` in `alembic/env.py` is a list of both declarative bases

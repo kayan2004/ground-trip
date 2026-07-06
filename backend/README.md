@@ -1,3 +1,35 @@
+## Running Tests
+
+![CI](https://github.com/kayan2004/smart-travel-assistant/actions/workflows/ci.yml/badge.svg)
+
+```powershell
+# One-time: create the test database (same Postgres the dev stack uses)
+docker exec smart_travel_assistant-db-1 psql -U postgres -c "CREATE DATABASE smart_travel_assistant_test"
+
+# From backend/
+$env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_assistant_test"
+uv run pytest --cov --cov-report=term-missing
+```
+
+Tests never touch the dev database (`smart_travel_assistant`) - `conftest.py` asserts `"test"` is in
+the configured `DATABASE_URL` before running anything, and creates + migrates
+`smart_travel_assistant_test` automatically on first run if it doesn't exist yet. Isolation between
+tests is **truncate-after**, not transactional rollback - several services under test commit
+internally (`persist_recommendation_slate`, `submit_feedback`), which would silently defeat a
+rollback-based recipe.
+
+All external HTTP (Voyage, Anthropic, Open-Meteo, Discord) is mocked via `httpx.MockTransport`; the
+`google-genai` SDK (Gemini) is mocked by patching its client method directly, since that SDK doesn't
+go through httpx. No live API calls happen in the test suite, ever.
+
+Coverage target is ~70% of `app/services` + `app/agent` - a target, not a 100%-or-fail gate.
+
+CI (`.github/workflows/ci.yml`) runs the same suite against a `postgres`/`pgvector` service
+container on every push/PR, plus `ruff check .` and `mypy app` as separate jobs. `mypy` is
+deliberately scoped to ignore a documented list of pre-existing-error modules (see
+`backend/pyproject.toml`'s `[tool.mypy]` section) rather than gating on issues this test suite
+didn't introduce.
+
 ## ML Workflow
 
 This backend now includes a complete travel-style classification workflow built from `data/travel_destinations_labeled.csv`.
