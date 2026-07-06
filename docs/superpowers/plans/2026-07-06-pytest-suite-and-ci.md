@@ -1578,7 +1578,7 @@ reasonable top-level location):
 ````markdown
 ## Running Tests
 
-![CI](https://github.com/kayan2004/smart-travel-planner/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/kayan2004/smart-travel-assistant/actions/workflows/ci.yml/badge.svg)
 
 ```powershell
 # One-time: create the test database (same Postgres the dev stack uses)
@@ -1653,10 +1653,14 @@ $env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart
 uv run pytest --cov --cov-report=term-missing -v
 ```
 
-Expected: every test from Tasks 3-8 passes (`26` total: 7+3+3+6+5+2), coverage report prints with
-`app/services/destination_recommendations.py`, `app/services/feedback.py`,
-`app/services/recommendation_persistence.py`, `app/services/llm_providers/*` all showing non-trivial
-coverage.
+Expected: every test from Tasks 3-8 passes (`26` total: 7+3+3+6+5+2). Coverage of the six priority
+modules is strong (`destination_recommendations.py` ~90%, `auth.py` ~96%, both LLM providers ~95%).
+Overall `app/services` + `app/agent` coverage lands around ~26%, well under the ~70% target -
+dragged down by four entirely offline modules (`clustering.py`, `destination_ingestion.py`,
+`rag_ingestion.py`, `ranker_training.py`) sitting at 0% since they're never exercised by the request
+path this suite tests, only by manually-run `scripts/*.py`. This is a documented, deliberate gap
+(see `backend/README.md`'s "Running Tests" section), not a shortfall to close by testing offline
+pipelines nothing at request time actually calls.
 
 - [ ] **Step 2: Run ruff + mypy once more on the full branch**
 

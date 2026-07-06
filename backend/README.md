@@ -22,7 +22,14 @@ All external HTTP (Voyage, Anthropic, Open-Meteo, Discord) is mocked via `httpx.
 `google-genai` SDK (Gemini) is mocked by patching its client method directly, since that SDK doesn't
 go through httpx. No live API calls happen in the test suite, ever.
 
-Coverage target is ~70% of `app/services` + `app/agent` - a target, not a 100%-or-fail gate.
+Coverage target is ~70% of `app/services` + `app/agent` - a target, not a 100%-or-fail gate, and this
+first suite doesn't hit it: overall `app/services` + `app/agent` coverage is ~26%, but that number is
+dragged down by four entirely offline, never-request-path modules (`clustering.py`,
+`destination_ingestion.py`, `rag_ingestion.py`, `ranker_training.py` - run manually via `scripts/*.py`,
+never by the live app) sitting at 0%. The six priority areas the spec named are covered well
+(`destination_recommendations.py` 90%, `auth.py` 96%, both LLM providers 95%): this suite covers
+highest-value request-path code first, deliberately not the offline pipelines, and doesn't chase the
+70% number by testing code nothing actually exercises at request time.
 
 CI (`.github/workflows/ci.yml`) runs the same suite against a `postgres`/`pgvector` service
 container on every push/PR, plus `ruff check .` and `mypy app` as separate jobs. `mypy` is
