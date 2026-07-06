@@ -550,8 +550,15 @@ async def test_budget_ceiling_allows_lower_and_equal_levels(db_session, seeded_d
     settings = get_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
+        # Exactly 7 of the 10 seeded destinations have budget_level in
+        # {low, medium, None} - min_candidates must not exceed that, or the
+        # relax-fallback (correctly) kicks in and returns everything,
+        # including "high" destinations, defeating this test's point.
+        # (Hit this exact failure during execution before adjusting these
+        # numbers - confirmed it was a test-corpus-size mismatch, not an
+        # app bug, by counting the seed fixture's budget_level values.)
         payload = DestinationRecommendationRequest(
-            query_text="a medium-budget trip", budget_level="medium", limit=10, min_candidates=10
+            query_text="a medium-budget trip", budget_level="medium", limit=7, min_candidates=5
         )
         response = await recommend_destinations(db_session, client, settings, payload)
 
@@ -599,8 +606,11 @@ async def test_region_filter_narrows_to_requested_region(db_session, seeded_dest
     settings = get_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
+        # Exactly 4 of the 10 seeded destinations are in Asia -
+        # min_candidates must not exceed that, or the relax-fallback
+        # (correctly) drops the region filter and returns every region.
         payload = DestinationRecommendationRequest(
-            query_text="somewhere in Asia", region="Asia", limit=10, min_candidates=10
+            query_text="somewhere in Asia", region="Asia", limit=4, min_candidates=4
         )
         response = await recommend_destinations(db_session, client, settings, payload)
 
@@ -615,7 +625,11 @@ async def test_results_are_ordered_by_cosine_similarity_descending(db_session, s
     # so its cosine similarity to itself is the maximum possible (1.0),
     # guaranteeing a predictable top result.
     target = seeded_destinations[0]
-    transport = mock_voyage_transport(embedding=list(target.embedding))
+    # pgvector deserializes Destination.embedding as numpy float32 scalars,
+    # which json.dumps can't serialize directly (used by mock_voyage_transport's
+    # handler) - cast each element to a native Python float first. Hit a
+    # real TypeError here during execution before adding this cast.
+    transport = mock_voyage_transport(embedding=[float(x) for x in target.embedding])
     async with httpx.AsyncClient(transport=transport) as client:
         payload = DestinationRecommendationRequest(
             query_text="find me something like Aurora Bay", limit=10, min_candidates=10
@@ -654,12 +668,17 @@ async def test_feature_snapshot_matches_request_constraints(db_session, seeded_d
     settings = get_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
+        # Exactly 3 of the 10 seeded destinations are in Asia with
+        # budget_level in {low, medium, None} - min_candidates must not
+        # exceed that, or the relax-fallback returns non-Asia destinations
+        # too, whose (correctly) region_match=False would fail this test
+        # for the wrong reason.
         payload = DestinationRecommendationRequest(
             query_text="a medium-budget trip to Asia",
             budget_level="medium",
             region="Asia",
-            limit=10,
-            min_candidates=10,
+            limit=3,
+            min_candidates=3,
         )
         response = await recommend_destinations(db_session, client, settings, payload)
 
