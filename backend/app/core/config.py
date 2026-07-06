@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     gemini_strong_model: str = "gemini-3.1-pro"
     gemini_max_tokens: int = 700
     gemini_temperature: float = 0.2
+    # Off by default: the shipped model (if any) is trained on a synthetic
+    # cold-start bootstrap, not real feedback - see backend/README.md's
+    # "Learning-to-Rank" section. When True AND artifacts/ranker/model.joblib
+    # exists, recommend_destinations() re-ranks the cosine-retrieved slate
+    # with it; otherwise cosine order is used, exactly as before.
+    ranker_enabled: bool = False
     discord_webhook_url: str = ""
     discord_webhook_username: str = "Smart Travel Assistant"
     discord_webhook_timeout_seconds: float = 15.0

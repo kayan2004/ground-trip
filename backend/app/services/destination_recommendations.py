@@ -12,6 +12,7 @@ from app.schemas.recommendations import (
     DestinationRecommendationRequest,
     DestinationRecommendationResponse,
 )
+from app.services.ranker import feature_vector, load_ranker_model, rank_order
 from app.services.voyage_embeddings import embed_texts
 
 BUDGET_ORDER: dict[str, int] = {"low": 0, "medium": 1, "high": 2}
@@ -41,7 +42,21 @@ async def recommend_destinations(
         )
         used_relaxed_constraints = True
 
-    ranked = rows[: payload.limit]
+    candidates = [
+        (destination, distance, _build_feature_snapshot(destination, distance, payload))
+        for destination, distance in rows
+    ]
+
+    if settings.ranker_enabled:
+        ranker_model = load_ranker_model()
+        if ranker_model is not None:
+            feature_rows = [
+                feature_vector(snapshot.model_dump()) for _, _, snapshot in candidates
+            ]
+            order = rank_order(ranker_model, feature_rows)
+            candidates = [candidates[index] for index in order]
+
+    ranked = candidates[: payload.limit]
     results = [
         DestinationRecommendationItem(
             destination_id=destination.id,
@@ -51,16 +66,9 @@ async def recommend_destinations(
             budget_level=destination.budget_level,
             score=round(1.0 - distance, 4),
             rank_position=index + 1,
-            features=DestinationFeatureSnapshot(
-                cosine_sim=round(1.0 - distance, 4),
-                tag_match_count=_count_matching_tags(
-                    destination.tags, payload.required_tags, payload.tag_weight_threshold
-                ),
-                budget_delta=_budget_delta(destination.budget_level, payload.budget_level),
-                region_match=_region_match(destination.region, payload.region),
-            ),
+            features=snapshot,
         )
-        for index, (destination, distance) in enumerate(ranked)
+        for index, (destination, distance, snapshot) in enumerate(ranked)
     ]
 
     return DestinationRecommendationResponse(
@@ -68,6 +76,21 @@ async def recommend_destinations(
         count=len(results),
         used_relaxed_constraints=used_relaxed_constraints,
         results=results,
+    )
+
+
+def _build_feature_snapshot(
+    destination: Destination,
+    distance: float,
+    payload: DestinationRecommendationRequest,
+) -> DestinationFeatureSnapshot:
+    return DestinationFeatureSnapshot(
+        cosine_sim=round(1.0 - distance, 4),
+        tag_match_count=_count_matching_tags(
+            destination.tags, payload.required_tags, payload.tag_weight_threshold
+        ),
+        budget_delta=_budget_delta(destination.budget_level, payload.budget_level),
+        region_match=_region_match(destination.region, payload.region),
     )
 
 
