@@ -1,0 +1,25 @@
+{
+  "model_version": "bootstrap-20260706102409",
+  "trained_at": "2026-07-06T10:24:09.662804+00:00",
+  "dataset_source": "bootstrap",
+  "dataset_path": "C:\\Users\\Kayan\\OneDrive\\Desktop\\projects\\sef_projects\\smart_travel_assistant\\backend\\artifacts\\ranker\\bootstrap_dataset.csv",
+  "feature_names": [
+    "cosine_sim",
+    "tag_match_count",
+    "budget_delta",
+    "region_match"
+  ],
+  "ndcg_at_3": 0.9159944507087253,
+  "ndcg_at_5": 0.9285804438476736,
+  "feature_importances": {
+    "cosine_sim": 5306.0,
+    "tag_match_count": 406.0,
+    "budget_delta": 244.0,
+    "region_match": 44.0
+  },
+  "n_train_rows": 1800,
+  "n_val_rows": 450,
+  "n_train_groups": 120,
+  "n_val_groups": 30,
+  "warning": "COLD-START PRIOR: trained on synthetic queries + a heuristic label function, not real user feedback. See backend/README.md's 'Learning-to-Rank' section."
+}
