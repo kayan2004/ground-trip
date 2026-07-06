@@ -476,6 +476,95 @@ flush/write-path-only issue. Do not "fix" this by changing `Recommendation`'s FK
 merging the two declarative bases - that's a real, deliberate conceptual split (see "Why
 `Destination` stays on its own declarative base" above), not a mistake to undo.
 
+## Learning-to-Rank: Cold-Start Bootstrap Ranker
+
+`recommend_destinations()` (`app/services/destination_recommendations.py`) retrieves candidates
+via a structured SQL pre-filter + pgvector cosine re-rank, exactly as before. Optionally, when
+`RANKER_ENABLED=true` **and** a trained model exists at `artifacts/ranker/model.joblib`, the
+cosine-retrieved candidate set is re-ordered by a LightGBM `LGBMRanker` before truncation to
+`limit` - cosine stays the retrieval mechanism; the ranker only reorders. `score` in the API
+response always means cosine similarity, regardless of which order the ranker produced; only
+`rank_position` reflects the ranker's order. Because reordering happens **before** truncation, a
+candidate the ranker considers more relevant can be promoted into the final slate even if it
+wasn't in the cosine-only top-`limit` - e.g. with `limit=5`, cosine order might put destinations
+`[A, B, C, D, E, ...]` but the ranker's top 5 could be `[A, B, C, F, G]`, `D`/`E` bumped out in
+favor of `F`/`G` from further down the retrieved set. This was confirmed during implementation:
+with no truncation the reordered set is identical to cosine's, only sequence differs; with
+truncation, the final slate's membership can (and did) differ.
+
+### Why bootstrap, and why that's clearly labeled
+
+The `recommendations`/`feedback` tables (added to persist ranking training data - see "Feedback
+Data Model" above) are **empty in this environment**: no real user has rated a recommendation yet.
+So there is no real feedback to learn from. `scripts/train_ranker.py bootstrap` generates a
+**COLD-START PRIOR** instead: synthetic query profiles, run through the real recommendation
+pipeline against the real 219-destination corpus, labeled by a documented heuristic with added
+noise - not real user preferences. Every artifact this produces (the dataset CSV's sibling
+`bootstrap_dataset_meta.json`, the trained model's `model_metadata.json`) carries an explicit
+`"COLD-START PRIOR"` warning string. Treat a bootstrap-trained ranker as a plumbing/demo artifact,
+not a quality improvement over cosine order - the label formula (below) is itself a function of
+the same four features the model trains on, so it mostly approximates that formula rather than
+learning genuine user preference, and one feature (`tag_match_count`) is 0 for essentially every
+real request today (`required_tags` is never populated by the LangGraph node - see
+`app/agent/graph.py`'s `recommend_destinations_node`), so `cosine_sim` still dominates in
+practice (confirmed by the bootstrap-trained model's own feature importances: `cosine_sim` ~13x
+higher than `tag_match_count`, the next-highest). `RANKER_ENABLED` therefore defaults to `false`.
+
+Synthetic queries are built by perturbing a **real** destination's real Voyage embedding with
+small Gaussian noise (`QUERY_PERTURBATION_SIGMA = 0.015`, calibrated so a synthetic query's
+cosine similarity to its own seed destination lands around 0.90 - close, but never a 1.0 exact
+self-match, which would have over-represented "perfect relevance" in the bootstrap set). This
+was chosen over embedding new synthetic query *text* because this environment has no
+`VOYAGE_API_KEY` configured; perturbing an existing real embedding still exercises the real SQL
+pre-filter, cosine re-rank, and feature-snapshot code paths against the real corpus.
+
+### Label heuristic (Phase 1)
+
+```
+raw = 3.0*cosine_sim + 0.5*min(tag_match_count, 2) + 0.5*region_match - 0.4*abs(budget_delta or 0)
+raw += N(0, 0.15)   # LABEL_NOISE_SIGMA - keeps the ranker from exactly re-deriving this formula
+label = quantile_bucket(raw, 4 grades)   # balanced 0-3 grades regardless of raw's scale
+```
+
+Defined once in `app/services/ranker_training.py`'s `heuristic_relevance_label()` /
+`bucket_into_grades()` - the noise and the formula are the "documented heuristic" the Phase 1 spec
+asked for.
+
+### Training (Phase 2) and NDCG / feature importances
+
+`scripts/train_ranker.py train` splits the dataset into train/val **by query group (`qid`)**, never
+by row - a candidate is never split across train and val for the same query. Trains an
+`LGBMRanker(objective="lambdarank")`, reports `ndcg@3`/`ndcg@5` on the held-out groups plus
+per-feature importances, and saves `artifacts/ranker/model.joblib` +
+`artifacts/ranker/model_metadata.json` (`model_version`, `trained_at`, `dataset_source`, metrics).
+On the checked-in bootstrap dataset (150 synthetic queries, 2250 candidate rows): `NDCG@3=0.916`,
+`NDCG@5=0.929`, feature importances `cosine_sim=5306, tag_match_count=406, budget_delta=244,
+region_match=44`.
+
+### Real-feedback retrain (Phase 4)
+
+Once real `feedback` rows exist, `scripts/train_ranker.py retrain` joins `feedback.verdict` onto
+`recommendations.features`, averages verdicts per recommendation (a recommendation can receive
+feedback from more than one anonymous session), maps the mean verdict to a 3-grade label
+(`round(mean_verdict) + 1` → 0/1/2), groups by `agent_run_id`, drops any agent_run with fewer than
+`--min-group-size` (default 2) feedback-labeled candidates, and runs the exact same
+`train_lgbm_ranker()` routine as the bootstrap path - the only differences are the label source and
+`model_metadata.json`'s `dataset_source` switching from `"bootstrap"` to `"real_feedback"` (and the
+`COLD-START PRIOR` warning disappearing). If there isn't at least 2 eligible agent_runs yet, it
+prints a message and leaves the existing model in place rather than training on too little data.
+
+Every model in `Recommendation`/`AgentRun`'s relationship graph (`AgentRun`, `User`, `ToolLog`, ...)
+must be imported somewhere before the first query touches either, or SQLAlchemy raises
+`InvalidRequestError: ... failed to locate a name (...)` trying to resolve a `relationship()`
+string lazily - `scripts/train_ranker.py` imports every model module for this side effect, the
+same pattern `alembic/env.py` already uses for autogenerate.
+
+### Config
+
+`RANKER_ENABLED` (`backend/.env`, default `false`) - `recommend_destinations()` only re-ranks when
+this is `true` **and** `artifacts/ranker/model.joblib` exists; otherwise cosine order is used,
+identical to before this feature existed.
+
 ## Destination Clustering (`scripts/cluster_destinations.py`)
 
 Offline HDBSCAN soft clustering over `destinations.embedding`, producing weighted travel-style
