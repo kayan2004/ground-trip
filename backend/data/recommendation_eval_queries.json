@@ -1,0 +1,90 @@
+[
+  {
+    "query": "A scenic mountain town with world-class hiking and outdoor adventure.",
+    "expected_destinations": ["Banff", "Chamonix", "Interlaken", "Zermatt", "Queenstown"]
+  },
+  {
+    "query": "A historic European city with grand architecture, museums, and classic landmarks.",
+    "expected_destinations": ["Paris", "Vienna", "Prague", "Rome", "Florence"]
+  },
+  {
+    "query": "A tropical island getaway with beaches and a relaxed pace.",
+    "expected_destinations": ["Bali", "Zanzibar", "Male", "Punta Cana", "Tulum"]
+  },
+  {
+    "query": "A vibrant Southeast Asian city famous for street food and temples.",
+    "expected_destinations": ["Bangkok", "Chiang Mai", "Hanoi", "Ho Chi Minh City", "Siem Reap"]
+  },
+  {
+    "query": "A desert destination with ancient ruins and archaeological wonders.",
+    "expected_destinations": ["Petra", "Luxor", "Cappadocia", "Cairo", "Aswan"]
+  },
+  {
+    "query": "A Nordic city known for design, coffee culture, and a cool climate.",
+    "expected_destinations": ["Copenhagen", "Stockholm", "Helsinki", "Oslo", "Reykjavik"]
+  },
+  {
+    "query": "A South American city with colonial architecture and vibrant culture.",
+    "expected_destinations": ["Cartagena", "Cusco", "Quito", "Salvador"]
+  },
+  {
+    "query": "A glamorous Mediterranean coastal town with beaches and nightlife.",
+    "expected_destinations": ["Mykonos", "Santorini", "Nice"]
+  },
+  {
+    "query": "A New Zealand destination famous for adventure tourism and outdoor thrills.",
+    "expected_destinations": ["Queenstown", "Rotorua", "Wellington"]
+  },
+  {
+    "query": "A major Japanese city blending ultramodern and traditional culture.",
+    "expected_destinations": ["Tokyo", "Osaka", "Kyoto", "Sapporo"]
+  },
+  {
+    "query": "An affordable historic city to explore on a budget.",
+    "budget_level": "low",
+    "region": "Asia",
+    "expected_destinations": ["Hanoi", "Chiang Mai", "Siem Reap", "Beijing", "Agra"]
+  },
+  {
+    "query": "A luxury European getaway with fine dining and elegant hotels.",
+    "budget_level": "high",
+    "region": "Europe",
+    "expected_destinations": ["Zurich", "Geneva", "Paris", "Copenhagen", "Amsterdam"]
+  },
+  {
+    "query": "An affordable African adventure destination.",
+    "budget_level": "low",
+    "region": "Africa",
+    "expected_destinations": ["Nairobi", "Cairo", "Casablanca", "Tunis", "Lagos"]
+  },
+  {
+    "query": "A mid-range city break in North America.",
+    "budget_level": "medium",
+    "region": "North America",
+    "expected_destinations": ["Montreal", "Toronto", "Quebec City", "Mexico City", "Cancun"]
+  },
+  {
+    "query": "A budget-friendly South American city to visit.",
+    "budget_level": "low",
+    "region": "South America",
+    "expected_destinations": ["Lima", "Quito", "Rio de Janeiro", "Salvador", "Florianopolis"]
+  },
+  {
+    "query": "A Middle Eastern city with rich history and modern comforts.",
+    "budget_level": "medium",
+    "region": "Middle East",
+    "expected_destinations": ["Dubai", "Abu Dhabi", "Istanbul", "Doha", "Amman", "Muscat", "Antalya"]
+  },
+  {
+    "query": "An affordable Southeast Asian beach destination.",
+    "budget_level": "low",
+    "region": "Asia",
+    "expected_destinations": ["Bali", "Cebu", "Manila"]
+  },
+  {
+    "query": "A high-end Oceania getaway.",
+    "budget_level": "high",
+    "region": "Oceania",
+    "expected_destinations": ["Sydney", "Melbourne", "Perth", "Gold Coast"]
+  }
+]

@@ -419,12 +419,46 @@ GeoJSON response (its published schema nests `kinds` under a doubled `properties
 `_fetch_opentripmap_pois` now requests `format=json` and reads the documented flat `SimpleFeature`
 list instead, verified against the live API.
 
+### Recommendation quality eval (`scripts/evaluate_recommendations.py`)
+
+`scripts/evaluate_rag.py` (RAG chunk retrieval, above/elsewhere) only checks a binary "did any
+expected destination appear in the top-5" hit per query - it doesn't compute real IR metrics. This
+script does, for the recommender specifically: real **recall@k** (`k=3,5,10`), **MRR**, and
+**NDCG@k** (`k=3,5,10`), against a hand-written ground-truth fixture
+(`data/recommendation_eval_queries.json`, 18 queries, same binary-relevance convention as
+`data/rag_eval_queries.json` - a query's `expected_destinations` list is "relevant," everything
+else is "not"). A mix of free-text-only queries (pure cosine similarity, like RAG) and queries that
+also set `budget_level`/`region` (exercising the SQL pre-filter + relax-fallback - the
+recommender's actual differentiator from RAG). Always evaluates cosine order
+(`RANKER_ENABLED=false`, the real production default) - the LightGBM ranker's own quality is
+tracked separately (NDCG in `artifacts/ranker/model_metadata.json`, against its own synthetic
+bootstrap heuristic, not this hand-labeled ground truth).
+
+```powershell
+uv run python scripts/evaluate_recommendations.py
+```
+
+Writes `artifacts/recommendations/recommendation_eval.{json,csv}`. Latest run against the real
+219-destination corpus: `recall@3=0.34`, `recall@5=0.44`, `recall@10=0.66`, `MRR=0.75`,
+`NDCG@5=0.49`. None of the 18 queries triggered relax-fallback.
+
+**Honest caveat about the ground truth itself**, found by actually reading a low-scoring result,
+not assumed: the "historic European city" query scored `recall@5=0.00` - it returned Strasbourg,
+Dresden, Bruges, Marseille, Cologne, Berlin, Istanbul, Ghent, Munich, and Turin, none of which were
+in the hand-picked expected list (Paris, Vienna, Prague, Rome, Florence). Every returned destination
+is a genuinely reasonable "historic European city" - the expected list was just narrowly picked
+toward the most famous options rather than the full set of valid matches the 219-destination corpus
+actually contains. This is a real limitation of hand-labeled binary ground truth on an open-ended
+semantic query, not a recommender defect - worth keeping in mind when reading low recall/NDCG scores
+on the more subjective free-text queries versus the more objectively-checkable structured-filter
+ones (which scored consistently higher on MRR).
+
 ## ML Feedback Schema (`recommendations`, `feedback`, `tag_definitions`)
 
 Groundwork for learning-to-rank over recommended destinations. `recommendations` and `feedback`
 were wired up in the 2026-07-06 session - see "Feedback Data Model (now wired up)" below.
-`tag_definitions` remains schema-only, pending clustering Phase 2/3 (see "Destination Clustering"
-below).
+`tag_definitions` now has 5 real rows (clustering Phase 2/3 have been run - see "Destination
+Clustering" below).
 
 - **`recommendations`** (`app/db/models/recommendation.py`) - the **full ranked slate** shown for
   an agent run, one row per destination position, not just the destination the user picked. This
