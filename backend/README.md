@@ -1,3 +1,8 @@
+See [`MODEL_CARD.md`](MODEL_CARD.md) for a consolidated reference on every ML/AI component in this
+project - the classifier, the recommender, the ranker, clustering, and LLM usage - what data each
+was fit/evaluated on, real measured numbers, current status, and honest known limitations. The
+sections below go deeper on implementation; the model card is the "what and why" summary.
+
 ## Running Tests
 
 ![CI](https://github.com/kayan2004/smart-travel-assistant/actions/workflows/ci.yml/badge.svg)

@@ -630,13 +630,27 @@ The project follows the engineering direction of the brief in several important 
 
 ## Known Gaps
 
-To be fully brief-complete, the main missing pieces are:
+Updated 2026-07-08 - several items below were closed this session; see `backend/MODEL_CARD.md` and
+`backend/README.md` for the full write-up on each.
 
-- LangSmith or equivalent end-to-end tracing
-- token usage / cost accounting
-- webhook retry with backoff
-- tests and CI
-- final polished README extras like a real trace screenshot
+**Closed:**
+- ~~LangSmith or equivalent end-to-end tracing~~ - real structured Python `logging` instead (no new
+  external account needed), covering the LLM provider layer and the full trip-planner pipeline.
+- ~~token usage / cost accounting~~ - per-call token counts + an estimated dollar cost, logged from
+  the LLM provider layer.
+- ~~webhook retry with backoff~~ - Discord delivery now retries on `429`/`5xx`/network errors.
+- ~~tests and CI~~ - `backend/tests/` (pytest + pytest-asyncio) and `.github/workflows/ci.yml` now
+  exist.
+
+Still missing:
+
+- Real user feedback: the `feedback` table is empty, so the LightGBM ranker is still trained on a
+  synthetic cold-start bootstrap, not real preference data. The retrain path exists
+  (`scripts/train_ranker.py retrain`) but has never fired for real.
+- The clustering pipeline's weighted travel-style tags (`destinations.tags`) are real and applied,
+  but nothing in the live agent graph sets `required_tags` from them yet - the recommender's own
+  tag-threshold filter is correct and tested, just unexercised in production traffic.
+- A final polished README extra: a real trace screenshot.
 
 ## Deliverable Honesty
 
