@@ -3,15 +3,23 @@
 import httpx
 import pytest
 
-from app.core.config import get_settings
+from app.core.config import Settings
 from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.destination_recommendations import recommend_destinations
 from tests.conftest import mock_voyage_transport
 
+# Not get_settings() - these tests must not depend on the real environment
+# having a real VOYAGE_API_KEY. embed_texts() raises before ever reaching
+# the mocked transport if settings.voyage_api_key is empty, and CI has no
+# .env file at all - this passed locally only because the dev .env happens
+# to have a real key, masking the bug until CI ran it for real.
+def _test_settings() -> Settings:
+    return Settings(voyage_api_key="test-voyage-key")
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_budget_ceiling_allows_lower_and_equal_levels(db_session, seeded_destinations):
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         # Exactly 7 of the 10 seeded destinations have budget_level in
@@ -33,7 +41,7 @@ async def test_budget_none_passes_through_null_budget_destinations(db_session, s
     """Destinations with budget_level=None always pass the filter, regardless
     of the requested ceiling - _fetch_ranked_candidates ORs in `is_(None)`.
     """
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         payload = DestinationRecommendationRequest(
@@ -49,7 +57,7 @@ async def test_budget_none_passes_through_null_budget_destinations(db_session, s
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_region_flexible_sentinel_skips_region_filter(db_session, seeded_destinations):
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         payload = DestinationRecommendationRequest(
@@ -64,7 +72,7 @@ async def test_region_flexible_sentinel_skips_region_filter(db_session, seeded_d
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_region_filter_narrows_to_requested_region(db_session, seeded_destinations):
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         # Exactly 4 of the 10 seeded destinations are in Asia -
@@ -81,7 +89,7 @@ async def test_region_filter_narrows_to_requested_region(db_session, seeded_dest
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_results_are_ordered_by_cosine_similarity_descending(db_session, seeded_destinations):
-    settings = get_settings()
+    settings = _test_settings()
     # Use the exact embedding of one seeded destination as the "user profile"
     # so its cosine similarity to itself is the maximum possible (1.0),
     # guaranteeing a predictable top result.
@@ -107,7 +115,7 @@ async def test_relaxes_constraints_when_too_few_candidates_survive(db_session, s
     """required_tags with an impossibly high threshold should eliminate every
     candidate under strict filtering, forcing the relaxed-fallback path.
     """
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         payload = DestinationRecommendationRequest(
@@ -125,7 +133,7 @@ async def test_relaxes_constraints_when_too_few_candidates_survive(db_session, s
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_feature_snapshot_matches_request_constraints(db_session, seeded_destinations):
-    settings = get_settings()
+    settings = _test_settings()
     transport = mock_voyage_transport()
     async with httpx.AsyncClient(transport=transport) as client:
         # Exactly 3 of the 10 seeded destinations are in Asia with
