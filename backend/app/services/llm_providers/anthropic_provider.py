@@ -24,20 +24,20 @@ class AnthropicProvider:
         **opts: object,
     ) -> str:
         settings = self._settings
-        if not settings.anthropic_api_key:
+        if not settings.anthropic.api_key:
             raise RuntimeError("Anthropic API key is not configured.")
 
-        model = settings.anthropic_model
-        max_tokens = opts.get("max_tokens", settings.anthropic_max_tokens)
-        temperature = opts.get("temperature", settings.anthropic_temperature)
+        model = settings.anthropic.model
+        max_tokens = opts.get("max_tokens", settings.anthropic.max_tokens)
+        temperature = opts.get("temperature", settings.anthropic.temperature)
         system, user_content = split_system_and_user(messages)
 
         started_at = time.monotonic()
         response = await self._http_client.post(
-            f"{settings.anthropic_api_base_url}/v1/messages",
+            f"{settings.anthropic.api_base_url}/v1/messages",
             headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": settings.anthropic_api_version,
+                "x-api-key": settings.anthropic.api_key,
+                "anthropic-version": settings.anthropic.api_version,
                 "content-type": "application/json",
             },
             json={
@@ -47,7 +47,7 @@ class AnthropicProvider:
                 "system": system,
                 "messages": [{"role": "user", "content": user_content}],
             },
-            timeout=settings.weather_request_timeout_seconds,
+            timeout=settings.weather.request_timeout_seconds,
         )
         elapsed_seconds = time.monotonic() - started_at
         raise_for_status_with_body(

@@ -25,10 +25,10 @@ class GeminiProvider:
     """
 
     def __init__(self, settings: Settings) -> None:
-        if not settings.gemini_api_key:
+        if not settings.gemini.api_key:
             raise RuntimeError("Gemini API key is not configured.")
         self._settings = settings
-        self._client = _get_client(settings.gemini_api_key)
+        self._client = _get_client(settings.gemini.api_key)
 
     async def complete(
         self,
@@ -36,9 +36,9 @@ class GeminiProvider:
         **opts: object,
     ) -> str:
         settings = self._settings
-        model = settings.gemini_model
-        max_tokens = opts.get("max_tokens", settings.gemini_max_tokens)
-        temperature = opts.get("temperature", settings.gemini_temperature)
+        model = settings.gemini.model
+        max_tokens = opts.get("max_tokens", settings.gemini.max_tokens)
+        temperature = opts.get("temperature", settings.gemini.temperature)
         system, user_content = split_system_and_user(messages)
 
         started_at = time.monotonic()

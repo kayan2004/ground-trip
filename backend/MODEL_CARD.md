@@ -22,13 +22,19 @@ component's failure rather than surfacing a raw model error.
   `backend/notebook/ml.ipynb`.
 - **Training data:** `data/travel_destinations_labeled.csv` - 200 rows, hand-labeled, balanced
   across 6 classes (Adventure/Relaxation/Culture/Budget/Luxury/Family, 33-34 rows each). A curated
-  assignment artifact, not scraped or crowd-sourced.
+  assignment artifact, not scraped or crowd-sourced. Removed from the repo 2026-07-11 (nothing in
+  this checkout reads it - `backend/notebook/ml.ipynb`, the notebook that trained on it, was never
+  committed either); provenance retained in `artifacts/ml/model_metadata.json`. Retraining now
+  requires recovering the CSV from git history or re-labeling from scratch.
 - **Evaluation** (`artifacts/ml/model_metadata.json`, `classification_report.json`): 5-fold CV
   macro F1 = **0.965** (std 0.037), accuracy = **0.965** (std 0.037). Per-class F1 ranges 0.94
   (Adventure) to 0.99 (Culture, Luxury).
 - **Status:** retired from the live recommendation path (2026-07-05), replaced by the structured
-  pre-filter + cosine recommender below. Still fully functional standalone at
-  `POST /tools/classify-travel-style` - the artifact and code were kept, not deleted.
+  pre-filter + cosine recommender below. The debug endpoint that exposed it standalone
+  (`POST /tools/classify-travel-style`) was removed 2026-07-11 along with the rest of the unused
+  `/tools/*` debug routes - the artifact (`artifacts/ml/best_model.joblib`) and
+  `services/classifier.py` were kept, still loaded at startup, just no longer reachable over HTTP
+  on its own.
 - **Why it was replaced, honestly:** the near-perfect CV score is a small-dataset artifact, not
   evidence the classifier generalizes - 200 hand-labeled rows can't capture the real
   219-destination corpus's diversity, and a fixed 6-class taxonomy can't express the
@@ -92,21 +98,24 @@ component's failure rather than surfacing a raw model error.
   `required_tags` from them yet - the recommender's tag-threshold filter (component 2) exists and
   is correct, but is currently unexercised in production traffic.
 
-## 5. LLM usage (Gemini/Gemma, third-party) — production
+## 5. LLM usage (Gemini, third-party) — production
 
 - **Purpose:** structured field extraction from user prompts, trip-plan synthesis, offline cluster
   naming (component 4's naming phase).
-- **Model:** currently Gemma 4 (`gemma-4-26b-a4b-it`), free tier, pinned as the single model for
-  all 3 call sites - no fast/strong tiers (removed 2026-07-06; see `backend/README.md`'s
-  "Provider-Agnostic LLM Layer" section for why).
+- **Model:** currently `gemini-3.1-flash-lite` (paid, not the free Gemma tier), pinned as the
+  single model for all 3 call sites - no fast/strong tiers (removed 2026-07-06; see
+  `backend/README.md`'s "Provider-Agnostic LLM Layer" section for why). Model name is a hardcoded
+  default in `app/core/config.py`, not an `.env` var (2026-07-09) - a cost/quality decision meant
+  to go through code review, not a silent runtime toggle.
 - Not a model this project trained - a third-party model, accessed through a provider-agnostic
   abstraction (`app/services/llm_providers/`); Anthropic is kept configured but dormant behind the
   same interface.
-- **Known limitation:** Gemma 4 spends a real, sometimes-large token budget on internal "thinking"
-  before the visible answer (up to ~1500 tokens observed on a trivial prompt) - `max_tokens` is
-  configured generously (4096 default) to avoid truncating mid-thought.
-- **Status:** production default, real live calls verified working (2026-07-06 - superseding an
-  earlier "unverified" state in this repo's history). Gemini-branded models (`gemini-3.1-*`) are
-  available via a one-line config change once billing is set up - they cost real money per token
+- **Known limitation:** the free-tier fallback (`gemma-4-26b-a4b-it`, used if billing isn't set up)
+  spends a real, sometimes-large token budget on internal "thinking" before the visible answer (up
+  to ~1500 tokens observed on a trivial prompt) - `max_tokens` is configured generously (4096
+  default) to avoid truncating mid-thought regardless of which model is active.
+- **Status:** production default, real live calls verified working. Confirmed live (2026-07-09) in
+  a direct comparison against `gemini-3.1-pro-preview` on the same prompt: `flash-lite` was ~5x
+  faster and ~9x cheaper (~$0.001/run at this app's prompt sizes) with equivalent answer quality
   (see `app/services/llm_providers/usage_logging.py`'s pricing table, verified live against each
   provider's current pricing page).

@@ -160,10 +160,13 @@ DB that predates this change.
 
 ## Data / artifacts (don't regenerate casually)
 
-- `backend/data/travel_destinations_labeled.csv` — the hand-labeled 200-row training set backing
-  both the ML classifier and the recommender.
 - `backend/artifacts/ml/best_model.joblib` — trained SVC, loaded once at startup
-  (`services/classifier.py`). Retraining lives in `backend/notebook/ml.ipynb`, not in app code.
+  (`services/classifier.py`). Trained on a hand-labeled 200-row dataset
+  (`travel_destinations_labeled.csv`, removed from the repo 2026-07-11 - the
+  notebook that consumed it, `backend/notebook/ml.ipynb`, was never committed
+  either) - `artifacts/ml/model_metadata.json` retains provenance. Retraining
+  the classifier now requires re-labeling data from scratch or recovering the
+  original CSV from git history (`git log --diff-filter=A -- backend/data/travel_destinations_labeled.csv`).
 - `backend/artifacts/rag/`, `backend/data/rag_eval_queries.json` — retrieval eval fixtures/output
   from `scripts/evaluate_rag.py`.
 - `backend/data/destination_seed_manifest.json` — versioned seed list (219 destinations) for the

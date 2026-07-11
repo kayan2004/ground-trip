@@ -173,7 +173,8 @@ The classifier predicts one of six travel styles:
 
 ### Dataset
 
-- Source file: `backend/data/travel_destinations_labeled.csv`
+- Source file: `backend/data/travel_destinations_labeled.csv` (removed from the repo 2026-07-11 -
+  nothing in this checkout reads it anymore; provenance retained in `backend/artifacts/ml/model_metadata.json`)
 - Size: 200 labeled destinations
 - Class balance:
   - Adventure: 34
@@ -391,10 +392,10 @@ OpenTripMap POIs, and Numbeo cost-of-living data (with Open-Meteo geocoding stan
 GeoNames), seeded from a versioned 219-destination manifest
 (`backend/data/destination_seed_manifest.json`). It is idempotent (upsert on `name, country`,
 content-hash-cached embeddings) and degrades gracefully when a source or the embedding provider is
-unavailable, rather than aborting the run. The existing classifier, `travel_destinations_labeled.csv`,
-and `destination_documents` RAG table are untouched - this is a parallel corpus, not a replacement
-yet. See `backend/README.md` for schema details, source rationale, and how to run ingestion from an
-empty database.
+unavailable, rather than aborting the run. The existing classifier (its trained artifact, not the
+now-removed source CSV - see "Dataset" above) and `destination_documents` RAG table are untouched -
+this is a parallel corpus, not a replacement yet. See `backend/README.md` for schema details,
+source rationale, and how to run ingestion from an empty database.
 
 ## Agent Design
 

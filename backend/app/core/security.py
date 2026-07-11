@@ -19,16 +19,16 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 def create_access_token(subject: str, expires_minutes: int | None = None) -> str:
     settings = get_settings()
-    lifetime = expires_minutes or settings.access_token_expire_minutes
+    lifetime = expires_minutes or settings.auth.access_token_expire_minutes
     expire_at = datetime.now(timezone.utc) + timedelta(minutes=lifetime)
 
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": expire_at,
     }
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(payload, settings.auth.jwt_secret_key, algorithm=settings.auth.jwt_algorithm)
 
 
 def decode_token(token: str) -> dict[str, Any]:
     settings = get_settings()
-    return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    return jwt.decode(token, settings.auth.jwt_secret_key, algorithms=[settings.auth.jwt_algorithm])

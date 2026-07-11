@@ -5,8 +5,8 @@ from app.core.config import Settings
 
 def create_db_engine(settings: Settings) -> AsyncEngine:
     return create_async_engine(
-        settings.database_url,
-        echo=settings.database_echo,
+        settings.database.url,
+        echo=settings.database.echo,
         future=True,
     )
 

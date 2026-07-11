@@ -30,7 +30,7 @@ config = context.config
 
 # Source the DB URL from the app's own Settings rather than duplicating it
 # in alembic.ini, per the project's "settings only through config.py" rule.
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+config.set_main_option("sqlalchemy.url", get_settings().database.url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

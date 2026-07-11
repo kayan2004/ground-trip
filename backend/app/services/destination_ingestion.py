@@ -82,7 +82,7 @@ async def ingest_destinations(
     manifest: DestinationSeedManifest | None = None,
 ) -> DestinationIngestionSummary:
     if manifest is None:
-        manifest = load_seed_manifest(settings.destination_seed_manifest_path)
+        manifest = load_seed_manifest(settings.destination.seed_manifest_path)
 
     numbeo_index, numbeo_thresholds, numbeo_available = await _load_numbeo_budget_index(
         http_client, settings
@@ -123,7 +123,7 @@ async def ingest_destinations(
     return _build_summary(
         records,
         numbeo_available=numbeo_available,
-        opentripmap_configured=bool(settings.opentripmap_api_key),
+        opentripmap_configured=bool(settings.opentripmap.api_key),
         embedding_failed=embedding_failed,
     )
 
@@ -147,8 +147,8 @@ async def _process_destination_seed(
     try:
         coordinates = await _run_with_retry(
             lambda: _geocode_destination(http_client, settings, seed.name, seed.country),
-            max_retries=settings.destination_max_retries,
-            backoff_seconds=settings.destination_retry_backoff_seconds,
+            max_retries=settings.destination.max_retries,
+            backoff_seconds=settings.destination.retry_backoff_seconds,
         )
         source_provenance["coordinates"] = "open-meteo-geocoding"
     except Exception as exc:  # noqa: BLE001 - isolate one source's failure from the rest
@@ -160,8 +160,8 @@ async def _process_destination_seed(
     try:
         wikivoyage_text = await _run_with_retry(
             lambda: _fetch_wikivoyage_text(http_client, settings, seed.wikivoyage_url),
-            max_retries=settings.destination_max_retries,
-            backoff_seconds=settings.destination_retry_backoff_seconds,
+            max_retries=settings.destination.max_retries,
+            backoff_seconds=settings.destination.retry_backoff_seconds,
         )
         raw_sources["wikivoyage"] = wikivoyage_text
         wikivoyage_summary = _truncate_at_sentence_boundary(
@@ -175,7 +175,7 @@ async def _process_destination_seed(
     # 3. OpenTripMap POI aggregation (requires both a configured key and
     # resolved coordinates; skips - not fails - when either is absent).
     poi_summary: str | None = None
-    if not settings.opentripmap_api_key:
+    if not settings.opentripmap.api_key:
         source_provenance["details.poi_summary"] = "skipped: opentripmap_api_key not configured"
     elif coordinates is None:
         source_provenance["details.poi_summary"] = "skipped: no coordinates resolved"
@@ -184,8 +184,8 @@ async def _process_destination_seed(
         try:
             kind_counts = await _run_with_retry(
                 lambda: _fetch_opentripmap_pois(http_client, settings, lat, lon),
-                max_retries=settings.destination_max_retries,
-                backoff_seconds=settings.destination_retry_backoff_seconds,
+                max_retries=settings.destination.max_retries,
+                backoff_seconds=settings.destination.retry_backoff_seconds,
             )
             raw_sources["opentripmap_kind_counts"] = kind_counts
             poi_summary = _compose_poi_summary(kind_counts)
@@ -255,9 +255,9 @@ async def _geocode_destination(
     country: str,
 ) -> tuple[float, float, str | None] | None:
     response = await http_client.get(
-        f"{settings.open_meteo_geocoding_base_url}{GEOCODING_PATH}",
+        f"{settings.weather.geocoding_base_url}{GEOCODING_PATH}",
         params={"name": name, "count": 5, "language": "en", "format": "json"},
-        timeout=settings.destination_fetch_timeout_seconds,
+        timeout=settings.destination.fetch_timeout_seconds,
     )
     response.raise_for_status()
     results = (response.json()).get("results") or []
@@ -279,8 +279,8 @@ async def _fetch_wikivoyage_text(
 ) -> str:
     response = await http_client.get(
         url,
-        headers={"User-Agent": settings.destination_user_agent},
-        timeout=settings.destination_fetch_timeout_seconds,
+        headers={"User-Agent": settings.destination.user_agent},
+        timeout=settings.destination.fetch_timeout_seconds,
     )
     response.raise_for_status()
     return _extract_main_text(response.text)
@@ -301,20 +301,20 @@ async def _fetch_opentripmap_pois(
     lon: float,
 ) -> dict[str, int]:
     response = await http_client.get(
-        f"{settings.opentripmap_base_url}/places/radius",
+        f"{settings.opentripmap.base_url}/places/radius",
         params={
-            "radius": settings.opentripmap_radius_meters,
+            "radius": settings.opentripmap.radius_meters,
             "lon": lon,
             "lat": lat,
-            "limit": settings.opentripmap_poi_limit,
+            "limit": settings.opentripmap.poi_limit,
             # Explicit "json" avoids the API's default GeoJSON response, whose
             # published schema nests kinds under a doubled properties.properties
             # key - the flat SimpleFeature list (xid/name/kinds/dist/point) is
             # unambiguous and all this pipeline needs is `kinds`.
             "format": "json",
-            "apikey": settings.opentripmap_api_key,
+            "apikey": settings.opentripmap.api_key,
         },
-        timeout=settings.destination_fetch_timeout_seconds,
+        timeout=settings.destination.fetch_timeout_seconds,
     )
     response.raise_for_status()
     places = response.json() or []
@@ -350,8 +350,8 @@ async def _load_numbeo_budget_index(
     try:
         index_by_city_country = await _run_with_retry(
             lambda: _fetch_numbeo_rankings_table(http_client, settings),
-            max_retries=settings.destination_max_retries,
-            backoff_seconds=settings.destination_retry_backoff_seconds,
+            max_retries=settings.destination.max_retries,
+            backoff_seconds=settings.destination.retry_backoff_seconds,
         )
     except Exception:  # noqa: BLE001
         return {}, None, False
@@ -370,8 +370,8 @@ async def _fetch_numbeo_rankings_table(
 ) -> dict[str, float]:
     response = await http_client.get(
         settings.numbeo_rankings_url,
-        headers={"User-Agent": settings.destination_user_agent},
-        timeout=settings.destination_fetch_timeout_seconds,
+        headers={"User-Agent": settings.destination.user_agent},
+        timeout=settings.destination.fetch_timeout_seconds,
     )
     response.raise_for_status()
 
@@ -479,11 +479,11 @@ async def _embed_records_in_batches(
     texts = [record.details for record in records]
     text_batches = build_text_batches(
         texts,
-        max_batch_size=settings.rag_embedding_batch_size,
-        max_request_tokens=settings.rag_embedding_max_request_tokens,
-        estimated_chars_per_token=settings.rag_estimated_chars_per_token,
+        max_batch_size=settings.rag.embedding_batch_size,
+        max_request_tokens=settings.rag.embedding_max_request_tokens,
+        estimated_chars_per_token=settings.rag.estimated_chars_per_token,
     )
-    min_request_interval_seconds = max(60.0 / max(settings.voyage_requests_per_minute, 1), 1.0)
+    min_request_interval_seconds = max(60.0 / max(settings.voyage.requests_per_minute, 1), 1.0)
 
     all_embeddings: list[list[float]] = []
     for batch_index, batch in enumerate(text_batches):
@@ -510,9 +510,9 @@ async def _upsert_destination(
         "fetched_at": record.fetched_at,
         "content_hash": record.content_hash,
         "embedding": record.embedding,
-        "embedding_model": settings.voyage_embedding_model if record.embedding is not None else None,
+        "embedding_model": settings.voyage.embedding_model if record.embedding is not None else None,
         "embedding_version": (
-            settings.destination_embedding_version if record.embedding is not None else None
+            settings.destination.embedding_version if record.embedding is not None else None
         ),
     }
 
@@ -529,8 +529,8 @@ async def _upsert_destination(
         # Only touch embedding columns when we actually computed a new one
         # this run, so a failed re-embed never clobbers a prior good vector.
         update_fields["embedding"] = record.embedding
-        update_fields["embedding_model"] = settings.voyage_embedding_model
-        update_fields["embedding_version"] = settings.destination_embedding_version
+        update_fields["embedding_model"] = settings.voyage.embedding_model
+        update_fields["embedding_version"] = settings.destination.embedding_version
 
     statement = pg_insert(Destination).values(**values)
     statement = statement.on_conflict_do_update(

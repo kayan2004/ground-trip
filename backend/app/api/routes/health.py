@@ -8,10 +8,10 @@ async def health_check(request: Request) -> dict[str, str | bool]:
     settings = request.app.state.settings
     return {
         "status": "ok",
-        "app_name": settings.app_name,
-        "environment": settings.app_env,
-        "debug": settings.app_debug,
-        "database_configured": bool(settings.database_url),
+        "app_name": settings.app.name,
+        "environment": settings.app.env,
+        "debug": settings.app.debug,
+        "database_configured": bool(settings.database.url),
         "travel_style_model_loaded": (
             request.app.state.resources.get("travel_style_model") is not None
         ),
@@ -19,5 +19,5 @@ async def health_check(request: Request) -> dict[str, str | bool]:
             request.app.state.resources.get("tool_registry") is not None
         ),
         "weather_provider": "open-meteo",
-        "discord_webhook_configured": bool(settings.discord_webhook_url),
+        "discord_webhook_configured": bool(settings.discord.webhook_url),
     }

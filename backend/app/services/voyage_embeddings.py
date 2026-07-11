@@ -14,7 +14,7 @@ async def embed_texts(
     *,
     input_type: str,
 ) -> list[list[float]]:
-    if not settings.voyage_api_key:
+    if not settings.voyage.api_key:
         raise ValueError("VOYAGE_API_KEY is not configured.")
     if not texts:
         return []
@@ -93,23 +93,23 @@ async def _post_embeddings_request(
 ) -> dict[str, Any]:
     last_error: httpx.HTTPStatusError | None = None
 
-    for attempt in range(settings.voyage_max_retries + 1):
+    for attempt in range(settings.voyage.max_retries + 1):
         response = await http_client.post(
-            f"{settings.voyage_api_base_url}/embeddings",
+            f"{settings.voyage.api_base_url}/embeddings",
             headers={
-                "Authorization": f"Bearer {settings.voyage_api_key}",
+                "Authorization": f"Bearer {settings.voyage.api_key}",
                 "Content-Type": "application/json",
             },
             json={
                 "input": texts,
-                "model": settings.voyage_embedding_model,
+                "model": settings.voyage.embedding_model,
                 "input_type": input_type,
-                "output_dimension": settings.voyage_embedding_dimension,
+                "output_dimension": settings.voyage.embedding_dimension,
             },
-            timeout=settings.voyage_timeout_seconds,
+            timeout=settings.voyage.timeout_seconds,
         )
 
-        if response.status_code == 429 and attempt < settings.voyage_max_retries:
+        if response.status_code == 429 and attempt < settings.voyage.max_retries:
             await asyncio.sleep(_get_retry_delay_seconds(response, settings, attempt))
             continue
 
@@ -138,5 +138,5 @@ def _get_retry_delay_seconds(
         except ValueError:
             pass
 
-    base_interval = max(60.0 / max(settings.voyage_requests_per_minute, 1), 1.0)
+    base_interval = max(60.0 / max(settings.voyage.requests_per_minute, 1), 1.0)
     return base_interval * (attempt + 1)

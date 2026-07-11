@@ -85,9 +85,9 @@ async def _resolve_location(
         params["countryCode"] = payload.country_code.upper()
 
     response = await http_client.get(
-        f"{settings.open_meteo_geocoding_base_url}{GEOCODING_PATH}",
+        f"{settings.weather.geocoding_base_url}{GEOCODING_PATH}",
         params=params,
-        timeout=settings.weather_request_timeout_seconds,
+        timeout=settings.weather.request_timeout_seconds,
     )
     response.raise_for_status()
     response_payload = response.json()
@@ -117,14 +117,14 @@ async def _fetch_current_conditions(
     location: ResolvedLocation,
 ) -> CurrentConditions:
     response = await http_client.get(
-        f"{settings.open_meteo_forecast_base_url}{FORECAST_PATH}",
+        f"{settings.weather.forecast_base_url}{FORECAST_PATH}",
         params={
             "latitude": location.latitude,
             "longitude": location.longitude,
             "current": ",".join(CURRENT_WEATHER_FIELDS),
             "timezone": location.timezone,
         },
-        timeout=settings.weather_request_timeout_seconds,
+        timeout=settings.weather.request_timeout_seconds,
     )
     response.raise_for_status()
     response_payload = response.json()

@@ -44,7 +44,9 @@ didn't introduce.
 
 ## ML Workflow
 
-This backend now includes a complete travel-style classification workflow built from `data/travel_destinations_labeled.csv`.
+This backend now includes a complete travel-style classification workflow, trained on
+`data/travel_destinations_labeled.csv` (the CSV itself was removed from the repo 2026-07-11 -
+nothing in this checkout reads it anymore; see MODEL_CARD.md for provenance).
 
 ### Labels
 
@@ -278,8 +280,9 @@ If your DB has never run this app before (a true fresh DB), just run `uv run ale
 
 ## Destination Corpus Ingestion (`destinations` table)
 
-A second, richer destination corpus lives alongside the original `travel_destinations_labeled.csv` /
-`destination_documents` RAG table (both left untouched). It now **is** wired into the agent - see
+A second, richer destination corpus lives alongside the original classifier training data (its
+trained artifact persists; the source CSV was removed 2026-07-11 - see "ML Workflow" above) and
+`destination_documents` RAG table (left untouched). It now **is** wired into the agent - see
 "Destination Recommendation (Pre-filter + Cosine Re-rank)" below for how the trip-planner graph
 queries it.
 
@@ -792,11 +795,17 @@ site. This was a deliberate simplification, not an oversight: the two-tier routi
 cheap/high-volume calls (extraction) to a fast model and quality-sensitive calls (synthesis,
 naming) to a stronger one, but the "strong" side of that split (`gemini-3.1-pro`) turned out to be
 a broken model string - it doesn't exist as a callable model at all (confirmed via
-`client.models.list()` - only `gemini-3.1-pro-preview` does) - and separately, the real
-Gemini-branded models require a paid prepay balance once billing is enabled on the project, while
-Gemma models are served for free through the same API. Rather than juggling two tiers across two
-different billing/availability situations, `gemini_model` is pinned to a single free Gemma 4 model
-for now. See "Gemini (default provider)" below for the full live-testing story.
+`client.models.list()` - only `gemini-3.1-pro-preview` does). See "Gemini (default provider)"
+below for the full live-testing story and the model currently pinned there.
+
+**Model name is a code default, not an env var** (changed 2026-07-09) - `gemini_model` and
+`anthropic_model` used to be `.env`-configurable; they're now hardcoded defaults in
+`app/core/config.py` and were removed from `.env`/`.env.example`. Reasoning: an API key is a
+secret with no sane default, but a model choice is a cost/quality decision - putting it behind a
+silent runtime env toggle made it too easy to (a) not notice which model a deployment was actually
+running, or (b) accidentally point production at an expensive model with no review trail. Changing
+the model now means editing `config.py` (a reviewable, versioned code change), not flipping a line
+in `.env`.
 
 ### Why an abstraction at all (lock-in, cost)
 
@@ -819,11 +828,12 @@ Set one env var and restart - no code changes:
 LLM_PROVIDER=gemini     # or: anthropic
 ```
 
-Everything else (`GEMINI_MODEL` vs `ANTHROPIC_MODEL`, per-provider `_MAX_TOKENS`/`_TEMPERATURE`) is
-already configured for both providers side by side in `.env`/`.env.example`, so the inactive
-provider's settings just sit unused rather than needing to be added when you switch.
+Everything else (`_MAX_TOKENS`/`_TEMPERATURE` per provider) is already configured for both
+providers side by side in `.env`/`.env.example`, so the inactive provider's settings just sit
+unused rather than needing to be added when you switch. Model name itself is **not** an env var -
+see the "Model name is a code default, not an env var" note above.
 
-### Gemini (default provider) - currently pinned to Gemma 4, live-verified working
+### Gemini (default provider) - currently pinned to gemini-3.1-flash-lite, live-verified working
 
 Implemented in `app/services/llm_providers/gemini_provider.py` using the official
 [`google-genai`](https://pypi.org/project/google-genai/) Python SDK (`client.aio.models.generate_content`)
@@ -832,8 +842,10 @@ rather than raw REST. Configure:
 ```
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
-GEMINI_MODEL=gemma-4-26b-a4b-it   # free tier - see below for why this, not a gemini-3.1-* model
 ```
+
+The model itself (`gemini_model` in `Settings`, currently `gemini-3.1-flash-lite`) is a hardcoded
+default in `app/core/config.py`, not an env var - see below for why.
 
 Generate a **restricted** API key (scoped to the Generative Language API) at
 [Google AI Studio](https://aistudio.google.com/apikey) - Google is phasing out unrestricted
@@ -864,9 +876,13 @@ these again:**
 
 So: live Gemini API calls **are** confirmed working now (both Gemma and Gemini-branded models) -
 this supersedes an earlier version of this doc that said no live call had been verified yet.
-`GEMINI_MODEL` stays pinned to the free Gemma model so running this app doesn't silently spend
-money; switching to a `gemini-3.1-*` model is a one-line config change once billing is set up the
-way you want it.
+
+**Update (2026-07-09):** `gemini_model` is now pinned to `gemini-3.1-flash-lite` (paid, not the
+free Gemma tier) - confirmed live: ~$0.001/run at this app's prompt sizes, and in a direct
+comparison against `gemini-3.1-pro-preview` on the same prompt, flash-lite was ~5x faster and ~9x
+cheaper with equivalent answer quality. `gemma-4-26b-a4b-it` remains the fallback if billing isn't
+set up on your project - swap it in `app/core/config.py`'s `gemini_model` default (not `.env` -
+see the code-default note above).
 
 **Transport tradeoff, deliberately accepted:** every other HTTP call in this app reuses one shared
 `httpx.AsyncClient` from `app/core/lifespan.py` (see `CLAUDE.md`'s async conventions). The
@@ -884,8 +900,10 @@ Implemented in `app/services/llm_providers/anthropic_provider.py` via plain REST
 ```
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=...
-ANTHROPIC_MODEL=claude-haiku-4-5
 ```
+
+The model itself (`anthropic_model` in `Settings`, currently `claude-haiku-4-5`) is a hardcoded
+default in `app/core/config.py`, not an env var.
 
 ### Adding a third provider
 

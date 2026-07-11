@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.core.config import Settings
+from app.core.config import AnthropicSettings, GeminiSettings, Settings
 from app.services.llm_providers.anthropic_provider import AnthropicProvider
 from app.services.llm_providers.factory import get_llm_provider
 from app.services.llm_providers.gemini_provider import GeminiProvider
@@ -39,7 +39,7 @@ def _anthropic_mock_transport(response_text: str = "mocked response") -> httpx.M
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_anthropic_provider_builds_correct_request_and_parses_response():
-    settings = Settings(anthropic_api_key="test-key", llm_provider="anthropic")
+    settings = Settings(llm_provider="anthropic", anthropic=AnthropicSettings(api_key="test-key"))
     transport = _anthropic_mock_transport("hello from anthropic")
 
     async with httpx.AsyncClient(transport=transport) as client:
@@ -56,14 +56,16 @@ async def test_anthropic_provider_builds_correct_request_and_parses_response():
     assert request.url.path == "/v1/messages"
     assert request.headers["x-api-key"] == "test-key"
     body = json.loads(request.content)
-    assert body["model"] == settings.anthropic_model
+    assert body["model"] == settings.anthropic.model
     assert body["system"] == "You are a helpful assistant."
     assert body["messages"] == [{"role": "user", "content": "Say hi."}]
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_anthropic_provider_uses_the_single_configured_model():
-    settings = Settings(anthropic_api_key="test-key", anthropic_model="claude-custom-test-model")
+    settings = Settings(
+        anthropic=AnthropicSettings(api_key="test-key", model="claude-custom-test-model")
+    )
     transport = _anthropic_mock_transport()
 
     async with httpx.AsyncClient(transport=transport) as client:
@@ -77,7 +79,7 @@ async def test_anthropic_provider_uses_the_single_configured_model():
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_gemini_provider_parses_response_text():
-    settings = Settings(gemini_api_key="test-key", llm_provider="gemini")
+    settings = Settings(llm_provider="gemini", gemini=GeminiSettings(api_key="test-key"))
     provider = GeminiProvider(settings)
 
     # usage_metadata=None matches a real (if unusual) SDK response shape -
@@ -93,13 +95,16 @@ async def test_gemini_provider_parses_response_text():
 
     assert result == "hello from gemini"
     _, call_kwargs = mock_generate.call_args
-    assert call_kwargs["model"] == settings.gemini_model
+    assert call_kwargs["model"] == settings.gemini.model
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_gemini_provider_logs_token_usage(caplog):
     """Priority 6/7 coverage: token/cost logging in the LLM provider layer."""
-    settings = Settings(gemini_api_key="test-key", llm_provider="gemini", gemini_model="gemma-4-26b-a4b-it")
+    settings = Settings(
+        llm_provider="gemini",
+        gemini=GeminiSettings(api_key="test-key", model="gemma-4-26b-a4b-it"),
+    )
     provider = GeminiProvider(settings)
 
     fake_usage = type(
@@ -131,7 +136,7 @@ async def test_gemini_provider_logs_token_usage(caplog):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_anthropic_provider_logs_token_usage(caplog):
     """Priority 6/7 coverage: token/cost logging in the LLM provider layer."""
-    settings = Settings(anthropic_api_key="test-key", anthropic_model="claude-haiku-4-5")
+    settings = Settings(anthropic=AnthropicSettings(api_key="test-key", model="claude-haiku-4-5"))
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -158,8 +163,10 @@ async def test_anthropic_provider_logs_token_usage(caplog):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_llm_provider_selects_by_config():
-    settings_gemini = Settings(llm_provider="gemini", gemini_api_key="test-key")
-    settings_anthropic = Settings(llm_provider="anthropic", anthropic_api_key="test-key")
+    settings_gemini = Settings(llm_provider="gemini", gemini=GeminiSettings(api_key="test-key"))
+    settings_anthropic = Settings(
+        llm_provider="anthropic", anthropic=AnthropicSettings(api_key="test-key")
+    )
 
     async with httpx.AsyncClient() as client:
         assert isinstance(get_llm_provider(settings_gemini, http_client=client), GeminiProvider)

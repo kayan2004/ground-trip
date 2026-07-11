@@ -1,94 +1,230 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
+# Every nested settings group below is itself a BaseSettings reading the same
+# shared .env file, filtered by its own env_prefix - so e.g. RagSettings only
+# ever sees RAG_* env vars. This keeps env var names identical to before this
+# refactor (RAG_CHUNK_SIZE still means the same thing); only the Python access
+# path changed, from settings.rag_chunk_size to settings.rag.chunk_size. A
+# field whose original env var didn't share its group's prefix (frontend_origin,
+# the two open_meteo_* weather URLs) keeps working via an explicit
+# validation_alias instead of the prefix convention.
 
-class Settings(BaseSettings):
-    app_name: str = "Smart Travel Planner API"
-    app_env: str = "development"
-    app_debug: bool = True
-    app_host: str = "0.0.0.0"
-    app_port: int = 8000
-    frontend_origin: str = "http://localhost:5173"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner"
-    database_echo: bool = False
+
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="APP_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    name: str = "Smart Travel Planner API"
+    env: str = "development"
+    debug: bool = True
+    host: str = "0.0.0.0"
+    port: int = 8000
+    frontend_origin: str = Field(
+        default="http://localhost:5173", validation_alias="FRONTEND_ORIGIN"
+    )
+
+
+class DatabaseSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="DATABASE_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner"
+    echo: bool = False
+
+
+class AuthSettings(BaseSettings):
+    """No shared env-var prefix across these three (JWT_* vs ACCESS_TOKEN_*),
+    so this group reads the original full names directly rather than via
+    env_prefix."""
+
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
     jwt_secret_key: str = "change-this-development-secret-to-32-plus-chars"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    rag_source_manifest_path: str = "data/rag_source_manifest.json"
-    rag_chunk_size: int = 800
-    rag_chunk_overlap: int = 120
-    rag_fetch_timeout_seconds: float = 20.0
-    rag_user_agent: str = "smart-travel-planner-rag-ingestion/1.0"
-    rag_embedding_batch_size: int = 32
-    rag_embedding_max_request_tokens: int = 10000
-    rag_estimated_chars_per_token: int = 4
-    voyage_api_key: str = ""
-    voyage_api_base_url: str = "https://api.voyageai.com/v1"
-    voyage_embedding_model: str = "voyage-4-lite"
-    voyage_embedding_dimension: int = 1024
-    voyage_timeout_seconds: float = 30.0
-    voyage_requests_per_minute: int = 3
-    voyage_max_retries: int = 3
-    llm_provider: str = "gemini"  # "anthropic" | "gemini" - selects the provider for all
-    # three LLM call sites (extraction, synthesis, cluster naming). See app/services/llm_providers/.
-    anthropic_api_key: str = ""
-    anthropic_api_base_url: str = "https://api.anthropic.com"
-    anthropic_api_version: str = "2023-06-01"
+
+
+class RagSettings(BaseSettings):
+    """RAG ingestion (Wikivoyage -> pgvector)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="RAG_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    source_manifest_path: str = "data/rag_source_manifest.json"
+    chunk_size: int = 800
+    chunk_overlap: int = 120
+    fetch_timeout_seconds: float = 20.0
+    user_agent: str = "smart-travel-planner-rag-ingestion/1.0"
+    embedding_batch_size: int = 32
+    embedding_max_request_tokens: int = 10000
+    estimated_chars_per_token: int = 4
+
+
+class VoyageSettings(BaseSettings):
+    """Voyage AI (embeddings provider)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="VOYAGE_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    api_key: str = ""
+    api_base_url: str = "https://api.voyageai.com/v1"
+    embedding_model: str = "voyage-4-lite"
+    embedding_dimension: int = 1024
+    timeout_seconds: float = 30.0
+    requests_per_minute: int = 3
+    max_retries: int = 3
+
+
+class AnthropicSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="ANTHROPIC_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    api_key: str = ""
+    api_base_url: str = "https://api.anthropic.com"
+    api_version: str = "2023-06-01"
     # No fast/strong tiers - removed entirely (2026-07-06) in favor of a single
-    # configured model per provider. Kept on the cheaper default since this
-    # provider is dormant while LLM_PROVIDER=gemini.
-    anthropic_model: str = "claude-3-5-haiku-latest"
-    anthropic_max_tokens: int = 700
-    anthropic_temperature: float = 0.2
-    gemini_api_key: str = ""
+    # configured model per provider. Model name is a deliberate, reviewable
+    # code decision (not an env var) - see CLAUDE.md's memory or the git log
+    # for why; kept on the cheaper default since this provider is dormant
+    # while LLM_PROVIDER=gemini.
+    model: str = "claude-haiku-4-5"
+    max_tokens: int = 700
+    temperature: float = 0.2
+
+
+class GeminiSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="GEMINI_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    api_key: str = ""
     # No base_url/version settings here - the google-genai SDK resolves the
     # Gemini Developer API endpoint itself; unlike AnthropicProvider (plain
     # REST), there's no wire-level detail for us to configure.
-    # Gemma 4 (free tier), not a Gemini-branded model - deliberate, temporary
-    # choice (2026-07-06) while the billing/prepay setup on the Gemini-branded
-    # models (gemini-3.1-*) gets sorted out. Single model, no fast/strong
-    # tiers - see backend/README.md's "Provider-Agnostic LLM Layer" section.
-    gemini_model: str = "gemma-4-26b-a4b-it"
+    # gemini-3.1-flash-lite - a paid Gemini-branded model, not the free Gemma
+    # tier. Confirmed live-working (2026-07-09): ~$0.001/run at this app's
+    # prompt sizes, ~5x faster and ~9x cheaper than gemini-3.1-pro-preview in
+    # a direct comparison, with equivalent answer quality in that test. Model
+    # choice lives here (not .env) on purpose - it's a cost/quality decision,
+    # not per-environment config; change it via a reviewed code edit, not a
+    # silent runtime toggle. See backend/README.md's "Gemini (default
+    # provider)" section for the full live-testing story and other
+    # confirmed-working model names (gemma-4-26b-a4b-it is the free-tier
+    # fallback if billing isn't set up).
+    model: str = "gemini-3.1-flash-lite"
     # Gemma 4 spends a substantial chunk of max_output_tokens on internal
     # "thinking" tokens (thought=True response parts) before ever emitting
     # the actual answer - confirmed live: a trivial prompt used ~1500
     # thinking tokens before the real ~85-token answer. A low budget (this
     # was 700) truncates mid-thought (finish_reason=MAX_TOKENS) and
-    # response.text comes back empty. Gemma 4 is free, so being generous
-    # here costs nothing.
-    gemini_max_tokens: int = 4096
-    gemini_temperature: float = 0.2
+    # response.text comes back empty. Kept generous so switching back to the
+    # free Gemma fallback doesn't silently truncate.
+    max_tokens: int = 4096
+    temperature: float = 0.2
+
+
+class DiscordSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="DISCORD_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    webhook_url: str = ""
+    webhook_username: str = "Smart Travel Planner"
+    webhook_timeout_seconds: float = 15.0
+    webhook_max_retries: int = 3
+    webhook_retry_backoff_seconds: float = 1.0
+
+
+class WeatherSettings(BaseSettings):
+    """Live weather (Open-Meteo). The two base URLs kept their original
+    OPEN_METEO_* env var names (predates this settings group) via an explicit
+    alias; only the timeout was ever WEATHER_-prefixed."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="WEATHER_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    geocoding_base_url: str = Field(
+        default="https://geocoding-api.open-meteo.com",
+        validation_alias="OPEN_METEO_GEOCODING_BASE_URL",
+    )
+    forecast_base_url: str = Field(
+        default="https://api.open-meteo.com",
+        validation_alias="OPEN_METEO_FORECAST_BASE_URL",
+    )
+    request_timeout_seconds: float = 20.0
+
+
+class DestinationSettings(BaseSettings):
+    """Destination corpus ingestion (backend/scripts/ingest_destinations.py)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="DESTINATION_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    seed_manifest_path: str = "data/destination_seed_manifest.json"
+    embedding_version: str = "v1"
+    fetch_timeout_seconds: float = 20.0
+    user_agent: str = (
+        "smart-travel-planner-destination-ingestion/1.0 "
+        "(contact: kayanabdepbaki@gmail.com)"
+    )
+    max_retries: int = 3
+    retry_backoff_seconds: float = 2.0
+
+
+class OpenTripMapSettings(BaseSettings):
+    """POI enrichment during destination ingestion - optional, degrades
+    gracefully if api_key is blank."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="OPENTRIPMAP_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    api_key: str = ""
+    base_url: str = "https://api.opentripmap.com/0.1/en"
+    radius_meters: int = 20000
+    poi_limit: int = 100
+
+
+class Settings(BaseSettings):
+    app: AppSettings = Field(default_factory=AppSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
+    rag: RagSettings = Field(default_factory=RagSettings)
+    voyage: VoyageSettings = Field(default_factory=VoyageSettings)
+
+    # "anthropic" | "gemini" - selects the provider for all three LLM call
+    # sites (extraction, synthesis, cluster naming). See app/services/llm_providers/.
+    llm_provider: str = "gemini"
+    anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
+    gemini: GeminiSettings = Field(default_factory=GeminiSettings)
+
     # Off by default: the shipped model (if any) is trained on a synthetic
     # cold-start bootstrap, not real feedback - see backend/README.md's
     # "Learning-to-Rank" section. When True AND artifacts/ranker/model.joblib
     # exists, recommend_destinations() re-ranks the cosine-retrieved slate
     # with it; otherwise cosine order is used, exactly as before.
     ranker_enabled: bool = False
-    discord_webhook_url: str = ""
-    discord_webhook_username: str = "Smart Travel Planner"
-    discord_webhook_timeout_seconds: float = 15.0
-    discord_webhook_max_retries: int = 3
-    discord_webhook_retry_backoff_seconds: float = 1.0
-    open_meteo_geocoding_base_url: str = "https://geocoding-api.open-meteo.com"
-    open_meteo_forecast_base_url: str = "https://api.open-meteo.com"
-    weather_request_timeout_seconds: float = 20.0
-    destination_seed_manifest_path: str = "data/destination_seed_manifest.json"
-    destination_embedding_version: str = "v1"
-    destination_fetch_timeout_seconds: float = 20.0
-    destination_user_agent: str = (
-        "smart-travel-planner-destination-ingestion/1.0 "
-        "(contact: kayanabdepbaki@gmail.com)"
-    )
-    destination_max_retries: int = 3
-    destination_retry_backoff_seconds: float = 2.0
-    opentripmap_api_key: str = ""
-    opentripmap_base_url: str = "https://api.opentripmap.com/0.1/en"
-    opentripmap_radius_meters: int = 20000
-    opentripmap_poi_limit: int = 100
+
+    discord: DiscordSettings = Field(default_factory=DiscordSettings)
+    weather: WeatherSettings = Field(default_factory=WeatherSettings)
+    destination: DestinationSettings = Field(default_factory=DestinationSettings)
+    opentripmap: OpenTripMapSettings = Field(default_factory=OpenTripMapSettings)
+
     numbeo_rankings_url: str = (
         "https://www.numbeo.com/cost-of-living/rankings_current.jsp"
     )

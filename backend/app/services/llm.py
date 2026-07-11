@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.schemas.classifier import TravelStylePredictionRequest
 from app.schemas.claude import ExtractedRequestFields
 from app.schemas.clustering import ClusterNamingProposal
-from app.services.llm_providers import Message, get_llm_provider, raise_for_status_with_body
+from app.services.llm_providers import Message, get_llm_provider
 import httpx
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
@@ -18,32 +18,13 @@ REQUEST_FIELD_EXTRACTION_PROMPT_PATH = (
 )
 
 
-async def list_anthropic_models(
-    http_client: httpx.AsyncClient,
-    settings: Settings,
-) -> dict:
-    if not settings.anthropic_api_key:
-        raise RuntimeError("Anthropic API key is not configured.")
-
-    response = await http_client.get(
-        f"{settings.anthropic_api_base_url}/v1/models",
-        headers={
-            "x-api-key": settings.anthropic_api_key,
-            "anthropic-version": settings.anthropic_api_version,
-        },
-        timeout=settings.weather_request_timeout_seconds,
-    )
-    raise_for_status_with_body(response, context="Anthropic model listing")
-    return response.json()
-
-
 def model_name(settings: Settings) -> str:
     """The single configured model for the active provider - no more
     fast/strong tiers (removed 2026-07-06 in favor of always using the free
     Gemma 4 model for Gemini, at least for now)."""
     if settings.llm_provider == "gemini":
-        return settings.gemini_model
-    return settings.anthropic_model
+        return settings.gemini.model
+    return settings.anthropic.model
 
 
 async def extract_request_fields(

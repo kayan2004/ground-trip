@@ -3,18 +3,18 @@
 import httpx
 import pytest
 
-from app.core.config import Settings
+from app.core.config import Settings, VoyageSettings
 from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.destination_recommendations import recommend_destinations
 from tests.conftest import mock_voyage_transport
 
 # Not get_settings() - these tests must not depend on the real environment
 # having a real VOYAGE_API_KEY. embed_texts() raises before ever reaching
-# the mocked transport if settings.voyage_api_key is empty, and CI has no
+# the mocked transport if settings.voyage.api_key is empty, and CI has no
 # .env file at all - this passed locally only because the dev .env happens
 # to have a real key, masking the bug until CI ran it for real.
 def _test_settings() -> Settings:
-    return Settings(voyage_api_key="test-voyage-key")
+    return Settings(voyage=VoyageSettings(api_key="test-voyage-key"))
 
 
 @pytest.mark.asyncio(loop_scope="session")

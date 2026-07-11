@@ -43,7 +43,7 @@ async def main() -> None:
     session_factory = create_session_factory(engine)
     http_client = httpx.AsyncClient(follow_redirects=True)
 
-    manifest = load_seed_manifest(settings.destination_seed_manifest_path)
+    manifest = load_seed_manifest(settings.destination.seed_manifest_path)
     if args.limit is not None:
         manifest = manifest.model_copy(
             update={"destinations": manifest.destinations[: args.limit]}

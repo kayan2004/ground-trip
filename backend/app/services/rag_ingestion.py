@@ -56,21 +56,21 @@ async def ingest_destination_documents(
     settings: Settings,
 ) -> dict[str, int]:
     _print_progress(5, "Loading source manifest")
-    sources = load_source_manifest(settings.rag_source_manifest_path)
+    sources = load_source_manifest(settings.rag.source_manifest_path)
 
     _print_progress(15, f"Fetching {len(sources)} source pages")
     fetched_documents = await fetch_source_documents(
         http_client,
         sources,
-        timeout_seconds=settings.rag_fetch_timeout_seconds,
-        user_agent=settings.rag_user_agent,
+        timeout_seconds=settings.rag.fetch_timeout_seconds,
+        user_agent=settings.rag.user_agent,
     )
 
     _print_progress(35, f"Chunking {len(fetched_documents)} fetched documents")
     chunks = chunk_source_documents(
         fetched_documents,
-        chunk_size=settings.rag_chunk_size,
-        chunk_overlap=settings.rag_chunk_overlap,
+        chunk_size=settings.rag.chunk_size,
+        chunk_overlap=settings.rag.chunk_overlap,
     )
 
     _print_progress(45, f"Preparing embeddings for {len(chunks)} chunks")
@@ -399,12 +399,12 @@ async def _embed_chunks_in_batches(
     texts = [chunk.content for chunk in chunks]
     text_batches = build_text_batches(
         texts,
-        max_batch_size=settings.rag_embedding_batch_size,
-        max_request_tokens=settings.rag_embedding_max_request_tokens,
-        estimated_chars_per_token=settings.rag_estimated_chars_per_token,
+        max_batch_size=settings.rag.embedding_batch_size,
+        max_request_tokens=settings.rag.embedding_max_request_tokens,
+        estimated_chars_per_token=settings.rag.estimated_chars_per_token,
     )
     min_request_interval_seconds = max(
-        60.0 / max(settings.voyage_requests_per_minute, 1),
+        60.0 / max(settings.voyage.requests_per_minute, 1),
         1.0,
     )
 
@@ -418,7 +418,7 @@ async def _embed_chunks_in_batches(
         estimated_tokens = sum(
             estimate_text_tokens(
                 text,
-                estimated_chars_per_token=settings.rag_estimated_chars_per_token,
+                estimated_chars_per_token=settings.rag.estimated_chars_per_token,
             )
             for text in batch
         )

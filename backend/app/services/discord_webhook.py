@@ -20,30 +20,30 @@ async def send_discord_message(
     Voyage's own retry loop uses (app/services/voyage_embeddings.py) for its
     real vs. rate-limit failure split.
     """
-    if not settings.discord_webhook_url:
+    if not settings.discord.webhook_url:
         raise RuntimeError("Discord webhook URL is not configured.")
 
     payload = {
-        "username": settings.discord_webhook_username,
+        "username": settings.discord.webhook_username,
         "content": message,
     }
     last_error: Exception | None = None
 
-    for attempt in range(settings.discord_webhook_max_retries + 1):
+    for attempt in range(settings.discord.webhook_max_retries + 1):
         try:
             response = await http_client.post(
-                settings.discord_webhook_url,
+                settings.discord.webhook_url,
                 json=payload,
-                timeout=settings.discord_webhook_timeout_seconds,
+                timeout=settings.discord.webhook_timeout_seconds,
             )
         except httpx.TransportError as exc:
             last_error = exc
-            if attempt < settings.discord_webhook_max_retries:
+            if attempt < settings.discord.webhook_max_retries:
                 await asyncio.sleep(_retry_delay_seconds(None, settings, attempt))
                 continue
             break
 
-        if attempt < settings.discord_webhook_max_retries and (
+        if attempt < settings.discord.webhook_max_retries and (
             response.status_code == 429 or response.status_code >= 500
         ):
             await asyncio.sleep(_retry_delay_seconds(response, settings, attempt))
@@ -55,7 +55,7 @@ async def send_discord_message(
     if last_error is not None:
         raise last_error
     raise RuntimeError(
-        f"Discord webhook delivery failed after {settings.discord_webhook_max_retries} retries."
+        f"Discord webhook delivery failed after {settings.discord.webhook_max_retries} retries."
     )
 
 
@@ -71,7 +71,7 @@ def _retry_delay_seconds(
                 return max(float(retry_after), 0.5)
             except ValueError:
                 pass
-    return settings.discord_webhook_retry_backoff_seconds * (2**attempt)
+    return settings.discord.webhook_retry_backoff_seconds * (2**attempt)
 
 
 async def send_trip_plan_to_discord(

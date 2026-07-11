@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-# Must match app.core.config.Settings.voyage_embedding_dimension. Changing
+# Must match app.core.config.VoyageSettings.embedding_dimension. Changing
 # this requires a new migration (ALTER COLUMN ... TYPE vector(N)), so it is
 # a fixed schema constant rather than something read from settings at import
 # time.

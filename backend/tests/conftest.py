@@ -99,11 +99,11 @@ def _run_migrations(database_url: str) -> None:
 async def _test_database_ready():
     """Session-scoped, autouse: creates + migrates the test DB exactly once."""
     settings = get_settings()
-    assert "test" in settings.database_url, (
-        f"Refusing to run tests against a non-test database: {settings.database_url}"
+    assert "test" in settings.database.url, (
+        f"Refusing to run tests against a non-test database: {settings.database.url}"
     )
-    await _ensure_test_database_exists(settings.database_url)
-    _run_migrations(settings.database_url)
+    await _ensure_test_database_exists(settings.database.url)
+    _run_migrations(settings.database.url)
     yield
 
 

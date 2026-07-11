@@ -5,15 +5,17 @@ item 8 - this was previously fire-once, no retry).
 import httpx
 import pytest
 
-from app.core.config import Settings
+from app.core.config import DiscordSettings, Settings
 from app.services.discord_webhook import send_discord_message
 
 
-def _settings(**overrides: object) -> Settings:
+def _settings(**discord_overrides: object) -> Settings:
     return Settings(
-        discord_webhook_url="https://discord.com/api/webhooks/test/token",
-        discord_webhook_retry_backoff_seconds=0.01,  # keep the test fast
-        **overrides,
+        discord=DiscordSettings(
+            webhook_url="https://discord.com/api/webhooks/test/token",
+            webhook_retry_backoff_seconds=0.01,  # keep the test fast
+            **discord_overrides,
+        )
     )
 
 
@@ -64,7 +66,7 @@ async def test_retries_on_500_then_succeeds():
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        await send_discord_message(client, _settings(discord_webhook_max_retries=3), message="hi")
+        await send_discord_message(client, _settings(webhook_max_retries=3), message="hi")
 
     assert call_count == 3
 
@@ -99,7 +101,7 @@ async def test_raises_after_exhausting_retries_on_persistent_500():
     async with httpx.AsyncClient(transport=transport) as client:
         with pytest.raises(httpx.HTTPStatusError):
             await send_discord_message(
-                client, _settings(discord_webhook_max_retries=2), message="hi"
+                client, _settings(webhook_max_retries=2), message="hi"
             )
 
     assert call_count == 3  # initial attempt + 2 retries
@@ -127,4 +129,6 @@ async def test_retries_on_network_error_then_succeeds():
 async def test_raises_for_missing_webhook_url():
     async with httpx.AsyncClient() as client:
         with pytest.raises(RuntimeError, match="not configured"):
-            await send_discord_message(client, Settings(discord_webhook_url=""), message="hi")
+            await send_discord_message(
+                client, Settings(discord=DiscordSettings(webhook_url="")), message="hi"
+            )
