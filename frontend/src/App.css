@@ -569,6 +569,41 @@ pre {
   overflow-x: auto;
 }
 
+/* ---- JSON payload syntax coloring ---- */
+
+.json-payload,
+.json-payload-raw {
+  font-family: var(--font-mono);
+}
+
+.json-payload-key {
+  color: var(--brass);
+  font-weight: 600;
+}
+
+.json-payload-string {
+  color: var(--signal-green);
+}
+
+.json-payload-number {
+  color: var(--text-primary);
+}
+
+.json-payload-boolean {
+  color: var(--clay);
+}
+
+.json-payload-null {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.json-payload-empty {
+  margin: var(--space-2) 0 0;
+  color: var(--text-tertiary);
+  font: var(--text-mono-sm);
+}
+
 @media (max-width: 900px) {
   .shell {
     padding: var(--space-4);

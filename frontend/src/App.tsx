@@ -11,6 +11,7 @@ import {
   signup,
   submitFeedback,
 } from './lib/api'
+import { JsonPayload } from './JsonPayload'
 import type { AgentRunRead, AuthMode, FeedbackVerdict, SessionState } from './types'
 import { WhyThisPick } from './WhyThisPick'
 
@@ -397,153 +398,135 @@ function App() {
         </div>
       </section>
 
-      <section className="gt-results-grid">
-        <article className="gt-panel">
-          <div className="gt-panel-header">
-            <div>
-              <p className="gt-eyebrow">Final answer</p>
-              <h2>Saved recommendation</h2>
-            </div>
-            <span className={`gt-pill ${statusPillTone(result?.status)}`}>
-              {result?.status || 'no run yet'}
-            </span>
-          </div>
-
-          {result ? (
-            <>
-              <div className="result-meta gt-mono">
-                <span>run #{result.id}</span>
-                <span>{new Date(result.created_at).toLocaleString()}</span>
+      {result && (
+        <section className="gt-results-grid">
+          <article className="gt-panel">
+            <div className="gt-panel-header">
+              <div>
+                <p className="gt-eyebrow">Final answer</p>
+                <h2>Saved recommendation</h2>
               </div>
-              <p className="gt-panel gt-panel--paper prompt-preview">{result.prompt}</p>
-              <div className="response-card">
-                {result.response.split('\n').map((line, index) => (
-                  <p key={`${line}-${index}`}>{renderInlineBoldText(line)}</p>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="empty-state">
-              Your first successful agent run will show up here with the final
-              saved answer from the backend.
-            </p>
-          )}
-        </article>
-
-        <article className="gt-panel">
-          <div className="gt-panel-header">
-            <div>
-              <p className="gt-eyebrow">Recommendations</p>
-              <h2>Rate the ranked slate</h2>
+              <span className={`gt-pill ${statusPillTone(result.status)}`}>{result.status}</span>
             </div>
-            <span className="gt-pill">
-              {result ? `${result.recommendations.length} destinations` : 'no slate yet'}
-            </span>
-          </div>
 
-          {feedbackError ? (
-            <p className="error-text" role="alert">
-              {feedbackError}
-            </p>
-          ) : null}
-
-          {result?.recommendations.length ? (
-            <div className="logs-list">
-              {result.recommendations.map((recommendation) => {
-                const activeVerdict = feedbackByRecommendation[recommendation.id]
-                return (
-                  <article key={recommendation.id} className="gt-panel gt-panel--raised log-card">
-                    <div className="log-header">
-                      <strong>
-                        #{recommendation.rank_position} {recommendation.destination_name}, {recommendation.country}
-                      </strong>
-                      <span className="gt-mono" style={{ color: 'var(--brass)' }}>
-                        {recommendation.score.toFixed(4)}
-                      </span>
-                    </div>
-                    <WhyThisPick features={recommendation.features} />
-                    <div className="feedback-actions">
-                      <button
-                        type="button"
-                        className={
-                          activeVerdict === 1
-                            ? 'gt-stamp gt-stamp--positive gt-stamp--active'
-                            : 'gt-stamp gt-stamp--positive'
-                        }
-                        aria-pressed={activeVerdict === 1}
-                        onClick={() => handleFeedback(recommendation.id, 1)}
-                      >
-                        Good match
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          activeVerdict === -1
-                            ? 'gt-stamp gt-stamp--negative gt-stamp--active'
-                            : 'gt-stamp gt-stamp--negative'
-                        }
-                        aria-pressed={activeVerdict === -1}
-                        onClick={() => handleFeedback(recommendation.id, -1)}
-                      >
-                        Not a fit
-                      </button>
-                    </div>
-                  </article>
-                )
-              })}
+            <div className="result-meta gt-mono">
+              <span>run #{result.id}</span>
+              <span>{new Date(result.created_at).toLocaleString()}</span>
             </div>
-          ) : (
-            <p className="empty-state">
-              Recommended destinations will appear here after a planner run, so
-              you can rate each ranked result.
-            </p>
-          )}
-        </article>
-
-        <article className="gt-panel">
-          <div className="gt-panel-header">
-            <div>
-              <p className="gt-eyebrow">Tool trail</p>
-              <h2>What the agent used</h2>
-            </div>
-            <span className="gt-pill">
-              {result ? `${result.tool_logs.length} logs` : 'no logs yet'}
-            </span>
-          </div>
-
-          {result?.tool_logs.length ? (
-            <div className="logs-list">
-              {result.tool_logs.map((log) => (
-                <article key={log.id} className="gt-panel gt-panel--raised log-card">
-                  <div className="log-header">
-                    <strong>{log.tool_name}</strong>
-                    <span className={`gt-pill ${log.status === 'success' ? 'gt-pill--positive' : 'gt-pill--negative'}`}>
-                      {log.status}
-                    </span>
-                  </div>
-                  <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
-                    {new Date(log.created_at).toLocaleString()}
-                  </p>
-                  <details>
-                    <summary>Input payload</summary>
-                    <pre>{log.input_payload}</pre>
-                  </details>
-                  <details>
-                    <summary>Output payload</summary>
-                    <pre>{log.output_payload}</pre>
-                  </details>
-                </article>
+            <p className="gt-panel gt-panel--paper prompt-preview">{result.prompt}</p>
+            <div className="response-card">
+              {result.response.split('\n').map((line, index) => (
+                <p key={`${line}-${index}`}>{renderInlineBoldText(line)}</p>
               ))}
             </div>
-          ) : (
-            <p className="empty-state">
-              Tool logs will appear here after a planner run so you can inspect
-              the recommender, RAG, weather, LLM synthesis, and Discord
-              delivery path.
-            </p>
-          )}
-        </article>
-      </section>
+          </article>
+
+          <article className="gt-panel">
+            <div className="gt-panel-header">
+              <div>
+                <p className="gt-eyebrow">Recommendations</p>
+                <h2>Rate the ranked slate</h2>
+              </div>
+              <span className="gt-pill">{result.recommendations.length} destinations</span>
+            </div>
+
+            {feedbackError ? (
+              <p className="error-text" role="alert">
+                {feedbackError}
+              </p>
+            ) : null}
+
+            {result.recommendations.length ? (
+              <div className="logs-list">
+                {result.recommendations.map((recommendation) => {
+                  const activeVerdict = feedbackByRecommendation[recommendation.id]
+                  return (
+                    <article key={recommendation.id} className="gt-panel gt-panel--raised log-card">
+                      <div className="log-header">
+                        <strong>
+                          #{recommendation.rank_position} {recommendation.destination_name}, {recommendation.country}
+                        </strong>
+                        <span className="gt-mono" style={{ color: 'var(--brass)' }}>
+                          {recommendation.score.toFixed(4)}
+                        </span>
+                      </div>
+                      <WhyThisPick features={recommendation.features} />
+                      <div className="feedback-actions">
+                        <button
+                          type="button"
+                          className={
+                            activeVerdict === 1
+                              ? 'gt-stamp gt-stamp--positive gt-stamp--active'
+                              : 'gt-stamp gt-stamp--positive'
+                          }
+                          aria-pressed={activeVerdict === 1}
+                          onClick={() => handleFeedback(recommendation.id, 1)}
+                        >
+                          Good match
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            activeVerdict === -1
+                              ? 'gt-stamp gt-stamp--negative gt-stamp--active'
+                              : 'gt-stamp gt-stamp--negative'
+                          }
+                          aria-pressed={activeVerdict === -1}
+                          onClick={() => handleFeedback(recommendation.id, -1)}
+                        >
+                          Not a fit
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">
+                This run didn't return any ranked destinations.
+              </p>
+            )}
+          </article>
+
+          <article className="gt-panel">
+            <div className="gt-panel-header">
+              <div>
+                <p className="gt-eyebrow">Tool trail</p>
+                <h2>What the agent used</h2>
+              </div>
+              <span className="gt-pill">{result.tool_logs.length} logs</span>
+            </div>
+
+            {result.tool_logs.length ? (
+              <div className="logs-list">
+                {result.tool_logs.map((log) => (
+                  <article key={log.id} className="gt-panel gt-panel--raised log-card">
+                    <div className="log-header">
+                      <strong>{log.tool_name}</strong>
+                      <span className={`gt-pill ${log.status === 'success' ? 'gt-pill--positive' : 'gt-pill--negative'}`}>
+                        {log.status}
+                      </span>
+                    </div>
+                    <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      {new Date(log.created_at).toLocaleString()}
+                    </p>
+                    <details>
+                      <summary>Input payload</summary>
+                      <JsonPayload value={log.input_payload} />
+                    </details>
+                    <details>
+                      <summary>Output payload</summary>
+                      <JsonPayload value={log.output_payload} />
+                    </details>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">No tool logs were recorded for this run.</p>
+            )}
+          </article>
+        </section>
+      )}
     </main>
   )
 }
