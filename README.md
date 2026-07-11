@@ -157,8 +157,6 @@ smart_travel_planner/
 │   ├── data/
 │   └── scripts/
 ├── frontend/
-├── db/
-│   └── init/
 ├── docker-compose.yaml
 └── README.md
 ```

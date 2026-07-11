@@ -142,7 +142,6 @@ The project now includes a standalone Postgres service in the root [docker-compo
 - service name: `db`
 - image: `pgvector/pgvector:0.8.2-pg17`
 - named volume: `postgres_data`
-- init script: `db/init/01-enable-pgvector.sql`
 
 Run only the database with:
 
@@ -150,7 +149,14 @@ Run only the database with:
 docker compose up db
 ```
 
-This keeps Postgres separate from the backend service, which matches the assignment structure. The pgvector extension is created automatically the first time the database volume is initialized.
+This keeps Postgres separate from the backend service, which matches the assignment structure.
+There used to be a `docker-entrypoint-initdb.d` init script here
+(`db/init/01-enable-pgvector.sql`) that ran `CREATE EXTENSION IF NOT EXISTS vector` on first
+container start - removed 2026-07-11 as redundant: the very first Alembic migration
+(`0e2bdbc1cc5a_create_destinations_table.py`) already runs the identical idempotent statement, and
+`alembic upgrade head` is the documented way to bring up schema on any fresh database (see
+"Database Migrations (Alembic)" below). The pgvector extension is now created by that migration,
+not by container startup.
 
 ### First ORM Table
 
