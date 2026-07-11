@@ -1,11 +1,13 @@
 import uuid
 
+from pydantic import ValidationError
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.destination import Destination
 from app.db.models.recommendation import Recommendation
 from app.schemas.recommendation_read import RecommendationRead
+from app.schemas.recommendations import DestinationFeatureSnapshot
 
 
 async def persist_recommendation_slate(
@@ -61,8 +63,20 @@ async def get_recommendations_for_agent_run(
             country=country,
             rank_position=recommendation.rank_position,
             score=recommendation.score,
-            features=recommendation.features,
+            features=_parse_features(recommendation.features),
             created_at=recommendation.created_at,
         )
         for recommendation, name, country in rows
     ]
+
+
+def _parse_features(raw_features: dict) -> DestinationFeatureSnapshot | None:
+    """Best-effort parse of the stored features JSONB into the typed
+    snapshot. A row written before this shape existed, or edited by hand,
+    shouldn't crash the whole recommendations list - degrade to None so the
+    API caller can render "ranking details unavailable" instead of a 500.
+    """
+    try:
+        return DestinationFeatureSnapshot.model_validate(raw_features)
+    except ValidationError:
+        return None

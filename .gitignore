@@ -1,6 +1,5 @@
 .vscode
 .env
-notebook
 backend/.venv/
 backend/.uv-cache/
 __pycache__/

@@ -12,6 +12,7 @@ import {
   submitFeedback,
 } from './lib/api'
 import type { AgentRunRead, AuthMode, FeedbackVerdict, SessionState } from './types'
+import { WhyThisPick } from './WhyThisPick'
 
 type View = 'login' | 'signup' | 'app'
 
@@ -248,7 +249,6 @@ function App() {
           <h1 className="auth-hero-heading">Sign in before you ask the agent where to go.</h1>
           <div className="pipeline-stages">
             <span className="gt-pill gt-pill--brass">extract</span>
-            <span className="gt-pill">classify</span>
             <span className="gt-pill">recommend</span>
             <span className="gt-pill">RAG</span>
             <span className="gt-pill">weather</span>
@@ -461,6 +461,7 @@ function App() {
                         {recommendation.score.toFixed(4)}
                       </span>
                     </div>
+                    <WhyThisPick features={recommendation.features} />
                     <div className="feedback-actions">
                       <button
                         type="button"

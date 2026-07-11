@@ -42,7 +42,7 @@ export interface RecommendationRead {
   country: string
   rank_position: number
   score: number
-  features: RecommendationFeatures
+  features: RecommendationFeatures | null
   created_at: string
 }
 

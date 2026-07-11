@@ -480,6 +480,62 @@
   margin-top: var(--space-3);
 }
 
+/* ---- Why this pick? (recommendation ranking readout) ---- */
+
+.why-pick {
+  margin-top: var(--space-3);
+}
+
+.why-pick-summary {
+  color: var(--text-secondary);
+}
+
+.why-pick-grid {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-well);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.why-pick-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.why-pick-value {
+  color: var(--text-primary);
+  justify-self: end;
+  text-align: right;
+}
+
+.why-pick-bar-track {
+  height: 6px;
+  border-radius: var(--radius-xs);
+  background: var(--navy-border);
+  overflow: hidden;
+}
+
+.why-pick-bar-fill {
+  height: 100%;
+  background: var(--brass);
+  border-radius: var(--radius-xs);
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+.why-pick-row:has(.why-pick-bar-track) {
+  grid-template-columns: minmax(7rem, auto) 1fr auto;
+}
+
+.why-pick-empty {
+  margin: var(--space-3) 0 0;
+  font: var(--text-body-sm);
+}
+
 details {
   cursor: default;
 }

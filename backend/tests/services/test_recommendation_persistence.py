@@ -66,7 +66,29 @@ async def test_features_are_captured_verbatim(db_session, seeded_destinations, t
     await persist_recommendation_slate(db_session, agent_run_id, slate)
     rows = await get_recommendations_for_agent_run(db_session, agent_run_id)
 
-    assert rows[0].features == features
+    assert rows[0].features is not None
+    assert rows[0].features.model_dump() == features
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_malformed_features_degrade_to_none_not_a_crash(db_session, seeded_destinations, test_user):
+    agent_run_id = await _make_agent_run(db_session, test_user)
+    slate = [
+        {
+            "destination_id": str(seeded_destinations[0].id),
+            "rank_position": 1,
+            "score": 0.5,
+            # Missing required keys (cosine_sim, tag_match_count, region_match) -
+            # simulates a row written before DestinationFeatureSnapshot existed,
+            # or hand-edited data. Must not raise; must degrade to None.
+            "features": {"budget_delta": 1},
+        }
+    ]
+
+    await persist_recommendation_slate(db_session, agent_run_id, slate)
+    rows = await get_recommendations_for_agent_run(db_session, agent_run_id)
+
+    assert rows[0].features is None
 
 
 @pytest.mark.asyncio(loop_scope="session")
