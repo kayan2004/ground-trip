@@ -3,14 +3,17 @@
 An end-to-end smart travel planner that turns a natural-language trip request into:
 
 - an inferred traveler profile
-- a predicted travel style
-- recommended destinations
+- recommended destinations, ranked by pgvector cosine similarity against that profile
 - retrieved destination context from a pgvector-backed RAG store
 - live weather conditions
 - a synthesized final answer
 - a Discord webhook delivery
 
-The system is built with a FastAPI backend, a React frontend, Postgres + pgvector, an ML travel-style classifier, and a LangGraph orchestration layer.
+The system is built with a FastAPI backend, a React frontend, Postgres + pgvector, and a LangGraph
+orchestration layer. An earlier version of this pipeline also had an ML travel-style classifier
+gating recommendations - it was retired 2026-07-05 in favor of the cosine recommender above, and
+fully removed from the repo 2026-07-11 (see the "ML Classifier" section below for the historical
+record, and `backend/MODEL_CARD.md` for why).
 
 ## What Problem This Solves
 
@@ -41,7 +44,8 @@ This repository is **substantially aligned** with the Week 4 Smart Travel Planne
 
 Implemented:
 
-- ML classifier with saved model artifacts
+- Structured pre-filter + pgvector cosine destination recommender (an earlier ML classifier
+  approach was built, evaluated, and later fully removed - see "ML Classifier" below)
 - RAG ingestion, storage, and retrieval
 - LangGraph-based multi-tool orchestration
 - Postgres persistence for users, runs, tool logs, and embeddings
@@ -50,13 +54,13 @@ Implemented:
 - Discord webhook delivery
 - full-stack `docker compose`
 
-Still missing or incomplete relative to the brief:
+Since this section was first written, the following have landed: structured pipeline tracing +
+token/cost logging (`app/services/llm_providers/usage_logging.py`, `app/core/logging_config.py`),
+Discord webhook retry-with-backoff (`app/services/discord_webhook.py`), and a pytest suite + CI
+(`backend/tests/`, `.github/workflows/ci.yml`) - see `backend/MODEL_CARD.md` and this repo's
+"Known Gaps" section below for what's real vs. still open. Still missing relative to the brief:
 
-- LangSmith or equivalent end-to-end trace screenshot
-- token usage logging and per-query cost breakdown
-- webhook retry with backoff
-- formal automated tests / CI coverage
-- a fully chat-style frontend
+- a fully chat-style, multi-turn frontend (current UI is single-shot request -> response)
 
 This README documents the project **as it exists now**.
 
@@ -66,12 +70,13 @@ The current app flow is:
 
 1. User signs up or logs in.
 2. User enters a natural-language trip request.
-3. Claude-based extraction infers a structured travel profile.
+3. LLM-based extraction (provider-agnostic - Gemini by default, Anthropic supported, see
+   `backend/README.md`'s "Provider-Agnostic LLM Layer") infers a structured travel profile.
 4. A structured SQL pre-filter (budget ceiling, region) narrows the `destinations` corpus, then a
    pgvector cosine re-rank against the prompt's embedding orders the survivors.
 5. The RAG tool retrieves destination context from embedded Wikivoyage documents.
 6. The live conditions tool checks current weather through Open-Meteo.
-7. Claude synthesizes the final answer.
+7. The same LLM provider synthesizes the final answer.
 8. The run is saved to Postgres and posted to Discord.
 
 ## Architecture
@@ -86,7 +91,7 @@ flowchart LR
     LG --> REC[Pre-filter + Cosine Re-rank]
     LG --> RAG[RAG Retrieval Tool]
     LG --> LIVE[Live Conditions Tool]
-    LG --> SYN[Claude Final Synthesis]
+    LG --> SYN[LLM Final Synthesis]
 
     REC --> PG[(Postgres + pgvector: destinations)]
     RAG --> PG2[(Postgres + pgvector: destination_documents)]
@@ -97,11 +102,12 @@ flowchart LR
     API --> WEBHOOK[Discord Webhook]
 ```
 
-> The SVC travel-style classifier (`artifacts/ml/best_model.joblib`) and the CSV hand-weighted
-> scorer (`app/services/recommendations.py`) have been retired from this path (see
-> `backend/README.md`'s "Destination Recommendation" section). Both files are still on disk and the
-> classifier is still reachable standalone via `POST /tools/classify-travel-style`, but neither is
-> called by the trip-planner graph anymore.
+> The SVC travel-style classifier was retired from this path 2026-07-05 (see `backend/README.md`'s
+> "Destination Recommendation" section) and fully removed from the repo 2026-07-11 - the trained
+> artifact (`artifacts/ml/best_model.joblib`) and `app/services/classifier.py` no longer exist on
+> disk, not just unreachable over HTTP. See the "ML Classifier" section below for the historical
+> methodology/numbers and `backend/MODEL_CARD.md` for why. The old CSV hand-weighted scorer
+> (`app/services/recommendations.py`) was deleted separately, earlier.
 
 ## Stack
 
@@ -149,7 +155,6 @@ smart_travel_planner/
 │   │   └── services/
 │   ├── artifacts/
 │   ├── data/
-│   ├── notebook/
 │   └── scripts/
 ├── frontend/
 ├── db/
@@ -158,7 +163,17 @@ smart_travel_planner/
 └── README.md
 ```
 
-## ML Classifier
+## ML Classifier (historical - fully removed 2026-07-11)
+
+This section is kept as the historical record of a real component that was built, evaluated, and
+later removed - not documentation of something currently in the repo. The classifier was retired
+from the live recommendation path 2026-07-05 (superseded by the structured pre-filter + pgvector
+cosine recommender, see "Destination Recommendation" further down and `backend/MODEL_CARD.md`),
+then fully deleted 2026-07-11: the trained artifact (`artifacts/ml/best_model.joblib` and its
+sibling metadata/report files), `app/services/classifier.py`, `app/schemas/classifier.py`, and the
+agent tool wrapping it are all gone from this checkout. None of the file paths below still exist on
+disk; recover them via `git log --diff-filter=D -- backend/app/services/classifier.py` if ever
+needed again.
 
 ### Labels
 
@@ -173,8 +188,9 @@ The classifier predicts one of six travel styles:
 
 ### Dataset
 
-- Source file: `backend/data/travel_destinations_labeled.csv` (removed from the repo 2026-07-11 -
-  nothing in this checkout reads it anymore; provenance retained in `backend/artifacts/ml/model_metadata.json`)
+- Source file: `backend/data/travel_destinations_labeled.csv` - removed from the repo 2026-07-11
+  along with the rest of the classifier; provenance is git history only now
+  (`git log --diff-filter=D -- backend/artifacts/ml/model_metadata.json`), not a file in this checkout
 - Size: 200 labeled destinations
 - Class balance:
   - Adventure: 34
@@ -236,15 +252,16 @@ For example:
 
 ### Training Setup
 
-The workflow lives in `backend/notebook/ml.ipynb`.
+The workflow lived in `backend/notebook/ml.ipynb` - that notebook was never actually committed to
+the repo, only its outputs (the trained artifact and metrics files, also since deleted).
 
 What was done:
 
 - preprocessing inside a scikit-learn pipeline
 - 5-fold stratified cross-validation
 - fixed random seeds
-- results tracked in `backend/artifacts/ml/results.csv`
-- winner persisted as `backend/artifacts/ml/best_model.joblib`
+- results tracked in `backend/artifacts/ml/results.csv` (deleted 2026-07-11)
+- winner persisted as `backend/artifacts/ml/best_model.joblib` (deleted 2026-07-11)
 
 ### Models Compared
 
@@ -272,11 +289,13 @@ The tuning search explored combinations of:
 - `max_features`: `sqrt`, 0.8
 - `min_samples_leaf`: 1, 2, 4
 
-This search is visible in `backend/artifacts/ml/results.csv`.
+This search was visible in `backend/artifacts/ml/results.csv` before that file was deleted
+2026-07-11.
 
 ### Per-Class Metrics
 
-From `backend/artifacts/ml/classification_report.json`:
+From `backend/artifacts/ml/classification_report.json` (deleted 2026-07-11 - numbers below are the
+last real measurement):
 
 | Class | Precision | Recall | F1 |
 |---|---:|---:|---:|
@@ -289,7 +308,8 @@ From `backend/artifacts/ml/classification_report.json`:
 
 ### Artifacts
 
-`backend/artifacts/ml/` contains:
+`backend/artifacts/ml/` used to contain the following, before the whole directory was deleted
+2026-07-11 along with the rest of the classifier:
 
 - `results.csv`
 - `classification_report.json`
@@ -353,9 +373,9 @@ The RAG pipeline:
 7. runs cosine-similarity search
 8. returns top matching chunks
 
-The retrieval route is:
-
-- `POST /tools/retrieve-destination-context`
+Retrieval runs in-process as part of `POST /agent-runs` (the `retrieve_context` graph node) - the
+standalone `POST /tools/retrieve-destination-context` debug route was removed 2026-07-11 (see
+"Tool routes" below).
 
 ### Retrieval Evaluation
 
@@ -384,7 +404,7 @@ One weaker case remains:
 
 So retrieval is generally strong, but not perfect.
 
-## Destination Corpus Ingestion (v2, not yet wired into the agent)
+## Destination Corpus Ingestion (v2 - production recommender source since 2026-07-05)
 
 Alongside the RAG system above, `backend/app/services/destination_ingestion.py` implements a
 richer, Alembic-managed `destinations` table (pgvector, HNSW index) sourced from Wikivoyage,
@@ -392,9 +412,11 @@ OpenTripMap POIs, and Numbeo cost-of-living data (with Open-Meteo geocoding stan
 GeoNames), seeded from a versioned 219-destination manifest
 (`backend/data/destination_seed_manifest.json`). It is idempotent (upsert on `name, country`,
 content-hash-cached embeddings) and degrades gracefully when a source or the embedding provider is
-unavailable, rather than aborting the run. The existing classifier (its trained artifact, not the
-now-removed source CSV - see "Dataset" above) and `destination_documents` RAG table are untouched -
-this is a parallel corpus, not a replacement yet. See `backend/README.md` for schema details,
+unavailable, rather than aborting the run. This `destinations` table is what the structured
+pre-filter + cosine recommender (see "ML Classifier" above for what it replaced) actually queries;
+the separate `destination_documents` RAG table described above is a smaller, distinct corpus (10
+Wikivoyage documents) used for context retrieval, not recommendation - the two run side by side in
+the same pipeline, not one superseding the other. See `backend/README.md` for schema details,
 source rationale, and how to run ingestion from an empty database.
 
 ## Agent Design
@@ -418,8 +440,9 @@ Current tool set used by the trip-planner graph:
 - `destination_context_retriever`
 - `live_conditions`
 
-`travel_style_classifier` remains registered and is reachable standalone via
-`POST /tools/classify-travel-style`, but the graph no longer calls it.
+The `travel_style_classifier` tool that used to be registered here (unreachable by the graph even
+before this) was removed along with the rest of the classifier 2026-07-11 - it's no longer in the
+tool registry at all, not just uncalled.
 
 ### Tool Validation
 
@@ -427,7 +450,6 @@ Every tool uses a Pydantic input schema before execution.
 
 Examples:
 
-- `TravelStylePredictionRequest`
 - `DestinationRecommendationRequest`
 - `RagRetrievalRequest`
 - `LiveConditionsRequest`
@@ -436,31 +458,22 @@ Examples:
 
 The LangGraph planner uses the registered tool registry only. Tools are not executed by arbitrary name strings from the model.
 
-## Two-Model Strategy
+## Provider-Agnostic LLM Layer
 
-The project routes different LLM work to different model tiers, behind a vendor-agnostic
-`LLMProvider` interface (`app/services/llm_providers/`) - see `backend/README.md`'s
-"Provider-Agnostic LLM Layer" for the full design and why it exists (provider lock-in, cost).
-`LLM_PROVIDER` (default `gemini`) selects the vendor; `anthropic` remains fully implemented and
-selectable, just not the default.
+The project routes all LLM work through a vendor-agnostic `LLMProvider` interface
+(`app/services/llm_providers/`) - see `backend/README.md`'s "Provider-Agnostic LLM Layer" for the
+full design and why it exists (an Anthropic billing block, at the time). `LLM_PROVIDER` (default
+`gemini`) selects the vendor; `anthropic` remains fully implemented and selectable, just not the
+default.
 
-Current strategy:
+There used to be separate fast/strong model tiers per provider; those were removed 2026-07-06 in
+favor of one single configured model per provider (`settings.gemini.model` /
+`settings.anthropic.model`, currently `gemini-3.1-flash-lite`) used for every call site -
+extraction, synthesis, and offline cluster naming alike. See `backend/MODEL_CARD.md`'s "LLM usage"
+component for current model name, live-verified cost/latency numbers, and known limitations.
 
-- **Fast model** (`gemini_fast_model` / `anthropic_fast_model`)
-  - used for extraction / mechanical work
-- **Strong model** (`gemini_strong_model` / `anthropic_strong_model`)
-  - used for final synthesis when the task is longer, richer, or noisier
-
-This matches the spirit of the brief.
-
-### Current Gap
-
-What is **not** yet implemented:
-
-- token usage logging per step
-- exact per-query cost breakdown
-
-So model routing is implemented, but cost accounting is still missing.
+Token usage logging and per-call cost estimation are implemented
+(`app/services/llm_providers/usage_logging.py`) - this used to be an open gap, closed 2026-07-06.
 
 ## Persistence
 
@@ -564,17 +577,17 @@ Current notable routes:
 ### Core agent flow
 
 - `POST /agent-runs`
+- `POST /feedback`
 
-### Tool routes
+### Health
 
-- `POST /tools/classify-travel-style`
-- `POST /tools/recommend-destinations`
-- `POST /tools/retrieve-destination-context`
-- `POST /tools/get-live-conditions`
-- `POST /tools/test-claude`
-- `POST /tools/test-extraction`
-- `POST /tools/test-discord-webhook`
-- `GET /tools/anthropic-models`
+- `GET /health`
+
+The debug `/tools/*` routes previously listed here (`classify-travel-style`,
+`recommend-destinations`, `retrieve-destination-context`, `get-live-conditions`, `test-claude`,
+`test-extraction`, `test-discord-webhook`, `anthropic-models`) were removed 2026-07-11 - none were
+called by the frontend, API-tested, or documented beyond this list. The services and tools they
+wrapped are unaffected; they still run in-process as part of `POST /agent-runs`.
 
 ## Running Locally
 

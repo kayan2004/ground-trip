@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import ToolRegistry
-from app.schemas.classifier import TravelStylePredictionRequest
+from app.schemas.claude import TravelProfile
 from app.schemas.live_conditions import LiveConditionsRequest
 from app.schemas.rag_retrieval import RagRetrievalRequest
 from app.schemas.recommendations import DestinationRecommendationRequest
@@ -15,7 +15,7 @@ from app.services.llm import extract_request_fields, synthesize_trip_response
 
 class TripPlannerState(TypedDict):
     prompt: str
-    travel_profile: NotRequired[TravelStylePredictionRequest | None]
+    travel_profile: NotRequired[TravelProfile | None]
     destination_name: NotRequired[str | None]
     location_query: NotRequired[str | None]
     location_country_code: NotRequired[str | None]
@@ -467,7 +467,6 @@ async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
             tool_context.http_client,
             tool_context.settings,
             prompt=state["prompt"],
-            predicted_style=None,
             destination_name=destination_name,
             response_sections=response_sections,
             tool_logs=state["tool_logs"],

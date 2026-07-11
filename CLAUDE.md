@@ -17,10 +17,11 @@ convention and what does/doesn't belong there vs. this file vs. code comments.
 ## What this is
 
 Smart Travel Planner (AI bootcamp Week 4 project, see `brief.md`): a natural-language trip
-request flows through Claude field-extraction → an ML travel-style classifier → a destination
-recommender → pgvector RAG retrieval → live weather (Open-Meteo) → Claude synthesis → Postgres
-persistence → Discord webhook. See `README.md` for the full write-up (labeling rules, chunking
-rationale, model comparison, known gaps).
+request flows through LLM field-extraction (provider-agnostic, Gemini by default) → a structured
+pre-filter + pgvector cosine destination recommender → pgvector RAG retrieval → live weather
+(Open-Meteo) → LLM synthesis → Postgres persistence → Discord webhook. The SVC travel-style
+classifier that used to sit in this pipeline was fully removed 2026-07-11 (see `backend/MODEL_CARD.md`).
+See `README.md` for the full write-up (chunking rationale, model comparison, known gaps).
 
 ## Stack
 
@@ -79,11 +80,13 @@ backend/app/
 ├── agent/      # LangGraph state machine (graph.py) + BaseTool/ToolRegistry (tools/)
 ├── api/routes/ # Thin FastAPI routers, one file per concern, all behind JWT auth
 ├── schemas/    # Pydantic models — the validation boundary for every route/tool
-├── services/   # Business logic: classifier, llm (extraction+synthesis+model routing+cluster
-│               #   naming, provider-agnostic via llm_providers.py's LLMProvider interface -
-│               #   Anthropic/Gemini), clustering (offline UMAP+HDBSCAN,
-│               #   scripts/cluster_destinations.py only), discord_webhook, live_conditions,
-│               #   rag_ingestion, rag_retrieval, recommendations, voyage_embeddings
+├── services/   # Business logic: llm (extraction+synthesis+cluster naming, provider-agnostic
+│               #   via llm_providers/'s LLMProvider interface - Anthropic/Gemini),
+│               #   destination_recommendations (pre-filter + cosine, the essential recommender),
+│               #   ranker/ranker_training (optional LightGBM re-rank, RANKER_ENABLED-gated),
+│               #   clustering (offline UMAP+HDBSCAN, scripts/cluster_destinations.py only),
+│               #   discord_webhook, live_conditions, rag_ingestion, rag_retrieval,
+│               #   voyage_embeddings. No ML classifier here anymore - removed 2026-07-11.
 └── prompts/    # Raw prompt templates (request_field_extraction_prompt.txt)
 ```
 
@@ -160,13 +163,10 @@ DB that predates this change.
 
 ## Data / artifacts (don't regenerate casually)
 
-- `backend/artifacts/ml/best_model.joblib` — trained SVC, loaded once at startup
-  (`services/classifier.py`). Trained on a hand-labeled 200-row dataset
-  (`travel_destinations_labeled.csv`, removed from the repo 2026-07-11 - the
-  notebook that consumed it, `backend/notebook/ml.ipynb`, was never committed
-  either) - `artifacts/ml/model_metadata.json` retains provenance. Retraining
-  the classifier now requires re-labeling data from scratch or recovering the
-  original CSV from git history (`git log --diff-filter=A -- backend/data/travel_destinations_labeled.csv`).
+- The SVC travel-style classifier (`artifacts/ml/`, `services/classifier.py`,
+  `travel_destinations_labeled.csv`) that used to be documented here was fully removed 2026-07-11
+  - it had been dormant/unreachable since 2026-07-05. See `backend/MODEL_CARD.md`'s intro for the
+  recovery path if it's ever needed again (`git log --diff-filter=D -- backend/app/services/classifier.py`).
 - `backend/artifacts/rag/`, `backend/data/rag_eval_queries.json` — retrieval eval fixtures/output
   from `scripts/evaluate_rag.py`.
 - `backend/data/destination_seed_manifest.json` — versioned seed list (219 destinations) for the

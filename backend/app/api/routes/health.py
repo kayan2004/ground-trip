@@ -12,9 +12,6 @@ async def health_check(request: Request) -> dict[str, str | bool]:
         "environment": settings.app.env,
         "debug": settings.app.debug,
         "database_configured": bool(settings.database.url),
-        "travel_style_model_loaded": (
-            request.app.state.resources.get("travel_style_model") is not None
-        ),
         "tool_registry_loaded": (
             request.app.state.resources.get("tool_registry") is not None
         ),

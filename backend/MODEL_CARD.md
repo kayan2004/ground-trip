@@ -6,44 +6,29 @@ status, and honest known limitations. Each section links to the fuller write-up 
 `backend/README.md` for implementation detail - this file is the "what and why," not a duplicate of
 the "how."
 
-No formal bias/fairness audit has been performed on any component below. The destination corpus and
-the classifier's training data both skew toward well-documented, tourism-heavy destinations - a
-function of what Wikivoyage/OpenTripMap/Numbeo actually cover - which likely underrepresents
-less-touristed regions. None of these components are exposed to end users directly; every one sits
-behind the LangGraph agent pipeline, which degrades gracefully (`status="partial"`) on any single
-component's failure rather than surfacing a raw model error.
+No formal bias/fairness audit has been performed on any component below. The destination corpus
+skews toward well-documented, tourism-heavy destinations - a function of what Wikivoyage/
+OpenTripMap/Numbeo actually cover - which likely underrepresents less-touristed regions. None of
+these components are exposed to end users directly; every one sits behind the LangGraph agent
+pipeline, which degrades gracefully (`status="partial"`) on any single component's failure rather
+than surfacing a raw model error.
 
-## 1. Travel-style classifier (SVC) — dormant
+The cosine recommender (component 1) is the essential ranking criterion - it runs on every request
+and is what "recommendation" means in this app. The LightGBM ranker (component 2) is the sole
+additional trained ML model, and it's secondary by design: it only re-orders what cosine already
+retrieved rather than replacing it, and only runs when both `RANKER_ENABLED=true` (the default)
+and its trained artifact are present, falling back to pure cosine order automatically otherwise.
+There used to be
+a third model here - an SVC travel-style classifier - but it was fully removed from the repo
+2026-07-11 (code, trained artifact, and training CSV all deleted; see git history at
+`git log --diff-filter=D -- backend/app/services/classifier.py` for what it looked like) after
+being dormant and unreachable since 2026-07-05. It's gone, not just retired - don't expect to find
+`artifacts/ml/` or `app/services/classifier.py` in this checkout.
 
-- **Purpose (originally):** predict one of 6 travel-style labels from structured destination
-  features, gating which recommendations to show.
-- **Model:** scikit-learn `SVC` (RBF kernel, `class_weight="balanced"`), selected over Logistic
-  Regression and Random Forest by 5-fold stratified cross-validation on macro F1. Trained in
-  `backend/notebook/ml.ipynb`.
-- **Training data:** `data/travel_destinations_labeled.csv` - 200 rows, hand-labeled, balanced
-  across 6 classes (Adventure/Relaxation/Culture/Budget/Luxury/Family, 33-34 rows each). A curated
-  assignment artifact, not scraped or crowd-sourced. Removed from the repo 2026-07-11 (nothing in
-  this checkout reads it - `backend/notebook/ml.ipynb`, the notebook that trained on it, was never
-  committed either); provenance retained in `artifacts/ml/model_metadata.json`. Retraining now
-  requires recovering the CSV from git history or re-labeling from scratch.
-- **Evaluation** (`artifacts/ml/model_metadata.json`, `classification_report.json`): 5-fold CV
-  macro F1 = **0.965** (std 0.037), accuracy = **0.965** (std 0.037). Per-class F1 ranges 0.94
-  (Adventure) to 0.99 (Culture, Luxury).
-- **Status:** retired from the live recommendation path (2026-07-05), replaced by the structured
-  pre-filter + cosine recommender below. The debug endpoint that exposed it standalone
-  (`POST /tools/classify-travel-style`) was removed 2026-07-11 along with the rest of the unused
-  `/tools/*` debug routes - the artifact (`artifacts/ml/best_model.joblib`) and
-  `services/classifier.py` were kept, still loaded at startup, just no longer reachable over HTTP
-  on its own.
-- **Why it was replaced, honestly:** the near-perfect CV score is a small-dataset artifact, not
-  evidence the classifier generalizes - 200 hand-labeled rows can't capture the real
-  219-destination corpus's diversity, and a fixed 6-class taxonomy can't express the
-  multi-dimensional travel-style signal that weighted embeddings + soft clustering (component 4,
-  below) now provide instead.
+## 1. Destination recommender (structured pre-filter + pgvector cosine re-rank) — production, essential
 
-## 2. Destination recommender (structured pre-filter + pgvector cosine re-rank) — production
-
-- **Purpose:** the primary recommendation mechanism the live agent actually uses.
+- **Purpose:** the primary recommendation mechanism the live agent actually uses, and the only one
+  every request goes through - every other component below is optional or offline.
 - **Model:** not a trained model - a SQL pre-filter (budget ceiling with null-passthrough, region,
   tag-weight threshold) followed by a pgvector cosine similarity re-rank over Voyage embeddings
   (`voyage-4-lite`, 1024-dim) via the `<=>` operator.
@@ -57,9 +42,13 @@ component's failure rather than surfacing a raw model error.
   `backend/README.md`'s "Recommendation quality eval" section for the full finding).
 - **Status:** production, always active on every request.
 
-## 3. LightGBM learning-to-rank ranker — optional, off by default
+## 2. LightGBM learning-to-rank ranker — secondary, the only other ML model in play
 
-- **Purpose:** optionally re-orders the cosine-retrieved candidate slate before truncation.
+- **Purpose:** re-orders the cosine-retrieved candidate slate before truncation - never the
+  primary signal. Cosine similarity remains the essential criterion (component 1): the ranker only
+  reorders what cosine already retrieved, and only runs at all when `RANKER_ENABLED=true` **and**
+  a trained model exists at `artifacts/ranker/model.joblib` - it degrades to pure cosine order
+  automatically if either condition isn't met, rather than blocking a request on it.
 - **Model:** `LGBMRanker`, `lambdarank` objective, 4 features (`cosine_sim`, `tag_match_count`,
   `budget_delta`, `region_match`).
 - **Training data:** **COLD-START PRIOR** - 150 synthetic queries (real destination embeddings
@@ -70,14 +59,19 @@ component's failure rather than surfacing a raw model error.
 - **Evaluation** (`artifacts/ranker/model_metadata.json`): NDCG@3 = 0.916, NDCG@5 = 0.929 - against
   its **own** synthetic bootstrap heuristic, not independent ground truth, so this measures fit to
   the heuristic, not real recommendation quality. `cosine_sim` dominates feature importance
-  (~13x the next-highest feature).
-- **Status:** `RANKER_ENABLED=false` by default.
+  (~13x the next-highest feature) - in practice this keeps the ranker's output close to cosine
+  order even when it's active.
+- **Status:** `RANKER_ENABLED=true` by default (`app/core/config.py`) - active on every request as
+  long as the trained artifact is present, which it is in this repo. Off only if explicitly set to
+  `false` or the artifact is removed.
 - **Known limitation:** the label formula is itself a function of the same 4 features the model
   trains on, so it mostly approximates that formula rather than learning genuine preference; in
   real traffic `tag_match_count` is near-constant (0) since the live graph node never populates
-  `required_tags`.
+  `required_tags`. Being on by default despite training on a synthetic cold-start prior (not real
+  feedback) is a deliberate tradeoff, not an oversight - see `backend/README.md`'s
+  "Learning-to-Rank" section.
 
-## 4. HDBSCAN + UMAP destination clustering — offline, tags applied
+## 3. HDBSCAN + UMAP destination clustering — offline, tags applied
 
 - **Purpose:** weighted travel-style tags per destination (`destinations.tags`), human-readable
   cluster names (`tag_definitions`).
@@ -95,13 +89,13 @@ component's failure rather than surfacing a raw model error.
   "Dynamic Urban Metropolises". `destinations.tags` holds real tag-name keys, not the raw
   `cluster_id` placeholders it held before.
 - **Known limitation:** produces the tags but nothing in the live graph node sets
-  `required_tags` from them yet - the recommender's tag-threshold filter (component 2) exists and
+  `required_tags` from them yet - the recommender's tag-threshold filter (component 1) exists and
   is correct, but is currently unexercised in production traffic.
 
-## 5. LLM usage (Gemini, third-party) — production
+## 4. LLM usage (Gemini, third-party) — production
 
 - **Purpose:** structured field extraction from user prompts, trip-plan synthesis, offline cluster
-  naming (component 4's naming phase).
+  naming (component 3's naming phase).
 - **Model:** currently `gemini-3.1-flash-lite` (paid, not the free Gemma tier), pinned as the
   single model for all 3 call sites - no fast/strong tiers (removed 2026-07-06; see
   `backend/README.md`'s "Provider-Agnostic LLM Layer" section for why). Model name is a hardcoded

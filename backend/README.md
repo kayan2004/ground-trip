@@ -1,7 +1,10 @@
-See [`MODEL_CARD.md`](MODEL_CARD.md) for a consolidated reference on every ML/AI component in this
-project - the classifier, the recommender, the ranker, clustering, and LLM usage - what data each
-was fit/evaluated on, real measured numbers, current status, and honest known limitations. The
-sections below go deeper on implementation; the model card is the "what and why" summary.
+See [`MODEL_CARD.md`](MODEL_CARD.md) for a consolidated reference on every ML/AI component
+currently in this project - the cosine recommender, the optional LightGBM ranker, clustering, and
+LLM usage - what data each was fit/evaluated on, real measured numbers, current status, and honest
+known limitations. An SVC travel-style classifier used to be part of that list; it was fully
+removed 2026-07-11 (see the model card's intro) and only survives here as the historical "ML
+Workflow" section below. The sections below go deeper on implementation; the model card is the
+"what and why" summary.
 
 ## Running Tests
 
@@ -42,11 +45,13 @@ deliberately scoped to ignore a documented list of pre-existing-error modules (s
 `backend/pyproject.toml`'s `[tool.mypy]` section) rather than gating on issues this test suite
 didn't introduce.
 
-## ML Workflow
+## ML Workflow (historical - fully removed 2026-07-11)
 
-This backend now includes a complete travel-style classification workflow, trained on
-`data/travel_destinations_labeled.csv` (the CSV itself was removed from the repo 2026-07-11 -
-nothing in this checkout reads it anymore; see MODEL_CARD.md for provenance).
+This backend used to include a complete travel-style classification workflow, trained on
+`data/travel_destinations_labeled.csv`. Both the CSV and every piece of code/artifact described in
+this section were removed from the repo 2026-07-11 - see `MODEL_CARD.md`'s intro for why and for
+the git-history recovery path. This section is kept only as the historical record of what was
+built and measured.
 
 ### Labels
 
@@ -75,7 +80,8 @@ Training excludes `destination`, `country`, and the label/audit columns. The mod
 
 ### Training
 
-Run the notebook from `backend/notebook/ml.ipynb`. The notebook now contains the full flow:
+The workflow ran in `backend/notebook/ml.ipynb` - that notebook was never actually committed to
+the repo, only its outputs. It contained the full flow:
 
 - exploratory data analysis
 - compares Logistic Regression, Random Forest, and SVC
@@ -86,7 +92,8 @@ Run the notebook from `backend/notebook/ml.ipynb`. The notebook now contains the
 
 ### Artifacts
 
-Training outputs are written to `artifacts/ml/`:
+Training outputs used to be written to `artifacts/ml/`, before that whole directory was deleted
+2026-07-11:
 
 - `results.csv`
 - `classification_report.json`
@@ -94,9 +101,11 @@ Training outputs are written to `artifacts/ml/`:
 - `model_metadata.json`
 - `best_model.joblib`
 
-### Inference
+### Inference (removed)
 
-Use the self-contained `predict_travel_style()` helper inside the notebook with a single destination-shaped feature dictionary to get a predicted travel style and probabilities when supported by the model.
+`predict_travel_style()` (`app/services/classifier.py`) took a single destination-shaped feature
+dictionary and returned a predicted travel style and probabilities. That function, its schema, and
+its agent tool wrapper are all deleted now.
 
 ## API Skeleton
 
@@ -214,7 +223,8 @@ Each tool log belongs to an `agent_run` and stores:
 - `status`
 - `created_at`
 
-This is the persistence hook we will later use for the classifier, RAG, and live-data tools.
+This is the persistence hook used by every tool in the trip-planner graph (recommender, RAG,
+live-data) - an early draft of this note also mentioned the classifier tool, since removed.
 
 ## Database Migrations (Alembic)
 
@@ -280,9 +290,9 @@ If your DB has never run this app before (a true fresh DB), just run `uv run ale
 
 ## Destination Corpus Ingestion (`destinations` table)
 
-A second, richer destination corpus lives alongside the original classifier training data (its
-trained artifact persists; the source CSV was removed 2026-07-11 - see "ML Workflow" above) and
-`destination_documents` RAG table (left untouched). It now **is** wired into the agent - see
+A second, richer destination corpus lives alongside the `destination_documents` RAG table (left
+untouched) - not alongside the classifier's training data anymore, since that (and the classifier
+itself) was fully removed 2026-07-11, see "ML Workflow" above. It **is** wired into the agent - see
 "Destination Recommendation (Pre-filter + Cosine Re-rank)" below for how the trip-planner graph
 queries it.
 
@@ -437,10 +447,15 @@ script does, for the recommender specifically: real **recall@k** (`k=3,5,10`), *
 `data/rag_eval_queries.json` - a query's `expected_destinations` list is "relevant," everything
 else is "not"). A mix of free-text-only queries (pure cosine similarity, like RAG) and queries that
 also set `budget_level`/`region` (exercising the SQL pre-filter + relax-fallback - the
-recommender's actual differentiator from RAG). Always evaluates cosine order
-(`RANKER_ENABLED=false`, the real production default) - the LightGBM ranker's own quality is
-tracked separately (NDCG in `artifacts/ranker/model_metadata.json`, against its own synthetic
-bootstrap heuristic, not this hand-labeled ground truth).
+recommender's actual differentiator from RAG). Intended to measure cosine order in isolation from
+the ranker - the script does *not* force `ranker_enabled=False` itself, it just warns
+("`ranker_enabled=True` in current settings - results below will reflect ranker reordering, not the
+cosine baseline this script reports on") if the caller's environment has the ranker on. Since
+`ranker_enabled` now defaults to `True` (see "Learning-to-Rank" below), running this script with an
+unmodified `.env` will hit that warning - pass `RANKER_ENABLED=false` explicitly to reproduce the
+pure-cosine numbers below. The LightGBM ranker's own quality is tracked separately (NDCG in
+`artifacts/ranker/model_metadata.json`, against its own synthetic bootstrap heuristic, not this
+hand-labeled ground truth).
 
 ```powershell
 uv run python scripts/evaluate_recommendations.py
@@ -606,7 +621,13 @@ learning genuine user preference, and one feature (`tag_match_count`) is 0 for e
 real request today (`required_tags` is never populated by the LangGraph node - see
 `app/agent/graph.py`'s `recommend_destinations_node`), so `cosine_sim` still dominates in
 practice (confirmed by the bootstrap-trained model's own feature importances: `cosine_sim` ~13x
-higher than `tag_match_count`, the next-highest). `RANKER_ENABLED` therefore defaults to `false`.
+higher than `tag_match_count`, the next-highest). Despite that caveat, `RANKER_ENABLED` now
+defaults to `true` (`app/core/config.py`) - the ranker re-ranks whenever the trained artifact
+(`artifacts/ranker/model.joblib`) is present, falling back to pure cosine order automatically if
+it isn't. Cosine similarity is still the essential, always-on signal (see "Destination
+Recommendation" above and `MODEL_CARD.md`); the ranker is a secondary re-ranking layer on top of
+it, not a replacement, and `cosine_sim` dominating its own feature importance means its output
+stays close to cosine order in practice even when active.
 
 Synthetic queries are built by perturbing a **real** destination's real Voyage embedding with
 small Gaussian noise (`QUERY_PERTURBATION_SIGMA = 0.015`, calibrated so a synthetic query's
@@ -659,7 +680,7 @@ same pattern `alembic/env.py` already uses for autogenerate.
 
 ### Config
 
-`RANKER_ENABLED` (`backend/.env`, default `false`) - `recommend_destinations()` only re-ranks when
+`RANKER_ENABLED` (`backend/.env`, default `true`) - `recommend_destinations()` only re-ranks when
 this is `true` **and** `artifacts/ranker/model.joblib` exists; otherwise cosine order is used,
 identical to before this feature existed.
 

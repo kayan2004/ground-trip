@@ -537,7 +537,7 @@ function App() {
           ) : (
             <p className="empty-state">
               Tool logs will appear here after a planner run so you can inspect
-              the classifier, recommender, RAG, weather, Claude, and Discord
+              the recommender, RAG, weather, LLM synthesis, and Discord
               delivery path.
             </p>
           )}

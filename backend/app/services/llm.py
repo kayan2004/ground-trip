@@ -6,8 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.schemas.classifier import TravelStylePredictionRequest
-from app.schemas.claude import ExtractedRequestFields
+from app.schemas.claude import ExtractedRequestFields, TravelProfile
 from app.schemas.clustering import ClusterNamingProposal
 from app.services.llm_providers import Message, get_llm_provider
 import httpx
@@ -71,7 +70,6 @@ async def synthesize_trip_response(
     settings: Settings,
     *,
     prompt: str,
-    predicted_style: str | None,
     destination_name: str | None,
     response_sections: list[str],
     tool_logs: list[dict[str, str]],
@@ -90,8 +88,6 @@ async def synthesize_trip_response(
         ],
     ]
 
-    if predicted_style is not None:
-        context_lines.append(f"\nPredicted travel style: {predicted_style}")
     if destination_name is not None:
         context_lines.append(f"Destination under discussion: {destination_name}")
 
@@ -257,7 +253,7 @@ def _coerce_extracted_fields(
     raw_travel_profile = payload.get("travel_profile")
     if isinstance(raw_travel_profile, dict):
         try:
-            safe_payload["travel_profile"] = TravelStylePredictionRequest.model_validate(
+            safe_payload["travel_profile"] = TravelProfile.model_validate(
                 raw_travel_profile
             )
         except ValidationError:
@@ -280,7 +276,7 @@ def _merge_with_inferred_travel_profile(
     raw_profile: dict,
     *,
     prompt: str,
-) -> TravelStylePredictionRequest:
+) -> TravelProfile:
     inferred = _infer_travel_profile_from_prompt(prompt)
     merged_profile = inferred.model_dump()
 
@@ -293,7 +289,7 @@ def _merge_with_inferred_travel_profile(
         {"travel_profile": merged_profile}
     )["travel_profile"]
     try:
-        return TravelStylePredictionRequest.model_validate(normalized_profile)
+        return TravelProfile.model_validate(normalized_profile)
     except ValidationError:
         return inferred
 
@@ -318,7 +314,7 @@ def _coerce_country_code(value: object) -> str | None:
 
 def _infer_travel_profile_from_prompt(
     prompt: str,
-) -> TravelStylePredictionRequest | None:
+) -> TravelProfile | None:
     lowered = prompt.casefold()
 
     budget_level = _infer_budget_level(lowered)
@@ -382,7 +378,7 @@ def _infer_travel_profile_from_prompt(
     avg_temp_peak = _infer_temperature_preference(lowered)
     region = _infer_region(lowered)
 
-    return TravelStylePredictionRequest(
+    return TravelProfile(
         region=region,
         budget_level=budget_level,
         tourism_level=tourism_level,

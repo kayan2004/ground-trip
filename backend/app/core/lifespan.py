@@ -5,7 +5,6 @@ from fastapi import FastAPI
 import httpx
 
 from app.agent.tools.registry import build_default_tool_registry
-from app.services.classifier import load_travel_style_model
 from .config import get_settings
 from app.db.session import create_db_engine, create_session_factory
 
@@ -15,7 +14,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     db_engine = create_db_engine(settings)
     db_session_factory = create_session_factory(db_engine)
-    travel_style_model = load_travel_style_model()
     http_client = httpx.AsyncClient(follow_redirects=True)
     tool_registry = build_default_tool_registry()
 
@@ -25,7 +23,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         "db_engine": db_engine,
         "db_session_factory": db_session_factory,
         "http_client": http_client,
-        "travel_style_model": travel_style_model,
         "tool_registry": tool_registry,
     }
 

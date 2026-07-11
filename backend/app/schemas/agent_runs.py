@@ -2,14 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.classifier import TravelStylePredictionRequest
+from app.schemas.claude import TravelProfile
 from app.schemas.recommendation_read import RecommendationRead
 from app.schemas.tool_logs import ToolLogRead
 
 
 class AgentRunCreate(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
-    travel_profile: TravelStylePredictionRequest | None = None
+    travel_profile: TravelProfile | None = None
     destination_name: str | None = Field(default=None, min_length=2, max_length=120)
     location_query: str | None = Field(default=None, min_length=2, max_length=120)
     location_country_code: str | None = Field(default=None, min_length=2, max_length=2)

@@ -1,7 +1,6 @@
 """Priority 4 coverage: signup/login/me. Uses httpx.ASGITransport directly
-(not TestClient) so the app's lifespan (loads the ML classifier model,
-builds the tool registry) never runs - irrelevant here, and would require
-artifacts/ml/best_model.joblib to exist just to test auth.
+(not TestClient) so the app's lifespan (builds the tool registry, etc.)
+never runs - irrelevant here.
 """
 
 import httpx
