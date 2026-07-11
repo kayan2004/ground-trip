@@ -1,411 +1,560 @@
-.auth-shell {
+/* ============================================================
+   GROUNDTRIP — component primitives (from the imported design
+   system) + app-specific layout. Primitives are prefixed `gt-`
+   so they read as system classes distinct from one-off layout.
+   ============================================================ */
+
+/* ---- Text utilities ---- */
+
+.gt-eyebrow {
+  font: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-tertiary);
+}
+
+.gt-mono {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.gt-mono-sm {
+  font: var(--text-mono-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Panel / card ---- */
+
+.gt-panel {
+  background: var(--surface-panel);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  padding: var(--panel-padding);
+}
+
+.gt-panel--raised {
+  background: var(--surface-panel-raised);
+  box-shadow: var(--shadow-panel-raised);
+}
+
+.gt-panel--paper {
+  background: var(--surface-inset);
+  color: var(--text-on-paper);
+  border-color: var(--border-on-paper);
+  box-shadow: none;
+}
+
+.gt-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* ---- Buttons ---- */
+
+.gt-btn {
+  appearance: none;
+  border: var(--stroke-hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  font: 600 0.92rem/1 var(--font-body);
+  letter-spacing: 0.01em;
+  padding: 0.75em 1.2em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.gt-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.gt-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.gt-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.gt-btn--primary {
+  background: var(--brass);
+  color: var(--text-on-brass);
+}
+.gt-btn--primary:hover:not(:disabled) {
+  background: var(--brass-bright);
+}
+.gt-btn--primary:active:not(:disabled) {
+  background: var(--accent-active);
+}
+
+.gt-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  padding-inline: var(--space-2);
+}
+.gt-btn--ghost:hover:not(:disabled) {
+  color: var(--brass);
+}
+
+/* Stamp / punch feedback toggle — circular, mechanical, snaps to
+   a filled state rather than tweening color like a normal button. */
+.gt-stamp {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: var(--stroke-md) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font: 600 0.82rem/1 var(--font-body);
+  padding: 0.5em 0.95em 0.5em 0.6em;
+  min-height: 44px;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.gt-stamp::before {
+  content: '';
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  border: var(--stroke-md) solid currentColor;
+  flex: none;
+}
+
+.gt-stamp:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.gt-stamp--positive.gt-stamp--active {
+  border-color: var(--positive);
+  color: var(--positive);
+  background: var(--signal-green-wash);
+}
+.gt-stamp--positive.gt-stamp--active::before {
+  background: var(--positive);
+}
+
+.gt-stamp--negative.gt-stamp--active {
+  border-color: var(--negative);
+  color: var(--negative);
+  background: var(--clay-wash);
+}
+.gt-stamp--negative.gt-stamp--active::before {
+  background: var(--negative);
+}
+
+/* ---- Form / "flight-computer entry line" ---- */
+
+.gt-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.gt-field > span {
+  font: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-tertiary);
+}
+
+.gt-input,
+.gt-textarea {
+  width: 100%;
+  background: var(--surface-well);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  border-left: var(--stroke-md) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  letter-spacing: var(--tracking-mono);
+  padding: 0.85em 1em;
+  caret-color: var(--brass);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.gt-input::placeholder,
+.gt-textarea::placeholder {
+  color: var(--text-tertiary);
+  font-family: var(--font-body);
+}
+
+.gt-textarea {
+  resize: vertical;
+  min-height: 9rem;
+  line-height: 1.5;
+}
+
+.gt-input:focus,
+.gt-textarea:focus {
+  outline: none;
+  border-left-color: var(--brass);
+  box-shadow: var(--shadow-focus);
+}
+
+.gt-compact-field {
+  max-width: 10rem;
+}
+
+/* ---- Readout / pill ---- */
+
+.gt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-xs);
+  padding: 0.3em 0.65em;
+  font: var(--text-mono-sm);
+  letter-spacing: var(--tracking-mono);
+  background: var(--navy-raised);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  color: var(--text-secondary);
+}
+
+.gt-pill--brass {
+  color: var(--brass);
+  border-color: var(--brass-dim);
+  background: var(--brass-wash);
+}
+.gt-pill--positive {
+  color: var(--positive);
+  border-color: var(--positive-dim);
+  background: var(--signal-green-wash);
+}
+.gt-pill--negative {
+  color: var(--negative);
+  border-color: var(--negative-dim);
+  background: var(--clay-wash);
+}
+
+/* ---- Segmented control ---- */
+
+.gt-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-well);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.gt-segmented-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 600 0.85rem/1 var(--font-body);
+  padding: 0.55em 1em;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  min-height: 38px;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.gt-segmented-btn:hover {
+  color: var(--text-primary);
+}
+
+.gt-segmented-btn.active {
+  background: var(--brass);
+  color: var(--text-on-brass);
+}
+
+/* ============================================================
+   APP LAYOUT
+   ============================================================ */
+
+.gt-auth-grid {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(22rem, 30rem);
-  gap: 1.5rem;
-  padding: 1.5rem;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 28rem);
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.gt-logo {
+  height: 56px;
+  width: auto;
 }
 
 .auth-hero {
-  border: 1px solid var(--border);
-  border-radius: 32px;
-  background:
-    linear-gradient(180deg, rgba(255, 251, 245, 0.1), rgba(255, 251, 245, 0.34)),
-    url('./assets/travel-hero.svg') center/cover no-repeat,
-    radial-gradient(circle at top left, rgba(233, 173, 83, 0.2), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(70, 118, 121, 0.18), transparent 36%),
-    var(--panel-strong);
-  box-shadow: var(--shadow);
-  padding: 2rem;
   display: grid;
-  align-content: end;
-  gap: 1rem;
-  min-height: 34rem;
+  gap: var(--space-5);
+  min-width: 0;
+  background-image:
+    radial-gradient(circle at 15% 20%, var(--brass-wash) 0%, transparent 42%),
+    radial-gradient(circle at 85% 85%, var(--signal-green-wash) 0%, transparent 45%);
+}
+
+.auth-hero h1 {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.auth-hero-heading {
+  font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.2rem);
+}
+
+.pipeline-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .auth-page-panel {
   align-self: center;
 }
 
-.shell {
-  display: grid;
-  gap: 1.5rem;
-  padding: 2rem;
+.gt-auth-header .gt-segmented {
+  flex-shrink: 0;
 }
 
-.hero-panel,
-.panel {
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
-
-.hero-panel {
-  padding: 2rem;
-  background:
-    linear-gradient(180deg, rgba(255, 251, 245, 0.34), rgba(255, 251, 245, 0.56)),
-    url('./assets/travel-hero.svg') center/cover no-repeat,
-    radial-gradient(circle at top right, rgba(233, 173, 83, 0.24), transparent 35%),
-    radial-gradient(circle at left center, rgba(70, 118, 121, 0.18), transparent 40%),
-    var(--panel-strong);
-}
-
-.hero-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.hero-header h1 {
-  max-width: 22ch;
-}
-
-.eyebrow,
-.panel-label,
-.hero-meta,
-.result-meta,
-.log-time,
-.session-meta {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.72rem;
-}
-
-.eyebrow {
-  font-size: 1rem;
-  letter-spacing: 0.18em;
-  font-weight: 800;
-  color: var(--ink);
-  margin-bottom: 0.7rem;
-}
-
-.hero-copy {
-  max-width: 46rem;
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  color: var(--text-soft);
-  align-items: center;
-}
-
-.workspace,
-.results-grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.workspace {
-  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
-}
-
-.app-workspace {
-  grid-template-columns: 1fr;
-}
-
-.results-grid {
-  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
-  align-items: start;
-}
-
-.panel {
-  padding: 1.5rem;
-}
-
-.panel-heading,
-.log-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.segmented-control {
-  display: inline-flex;
-  padding: 0.25rem;
-  border-radius: 999px;
-  background: rgba(32, 51, 55, 0.08);
-}
-
-.segmented-control button,
-.primary-button,
-.secondary-button,
-.status-pill {
-  border-radius: 999px;
-}
-
-.segmented-control button {
-  border: 0;
-  background: transparent;
-  color: var(--text-soft);
-  padding: 0.5rem 0.9rem;
-  cursor: pointer;
-  font: inherit;
-}
-
-.segmented-control button.active {
-  background: var(--ink);
-  color: #f8f1e6;
-}
-
-.status-pill {
-  padding: 0.45rem 0.85rem;
-  font-size: 0.82rem;
-  background: rgba(32, 51, 55, 0.08);
-  color: var(--text-soft);
-}
-
-.status-completed,
-.status-ready {
-  background: rgba(41, 107, 79, 0.14);
-  color: #1f6e4d;
-}
-
-.status-partial {
-  background: rgba(187, 122, 33, 0.16);
-  color: #9d5a14;
-}
-
-.status-failed,
-.status-idle {
-  background: rgba(151, 52, 37, 0.14);
-  color: #983828;
+.gt-auth-header .gt-segmented-btn {
+  white-space: nowrap;
 }
 
 .form-grid {
   display: grid;
-  gap: 1rem;
-  margin-top: 1.25rem;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
 }
 
-.form-grid label {
+.error-text {
+  color: var(--negative);
+  margin: 0;
+  font: var(--text-body-sm);
+}
+
+.shell {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
-.form-grid span {
-  font-size: 0.9rem;
-  color: var(--text-soft);
+.hero-panel {
+  background-image:
+    radial-gradient(circle at 90% 10%, var(--brass-wash) 0%, transparent 40%),
+    radial-gradient(circle at 5% 90%, var(--signal-green-wash) 0%, transparent 45%);
 }
 
-input,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid rgba(32, 51, 55, 0.16);
-  border-radius: 18px;
-  background: rgba(255, 251, 245, 0.88);
-  color: var(--ink);
-  padding: 0.9rem 1rem;
-  font: inherit;
+.gt-planner-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-6);
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-textarea {
-  resize: vertical;
-  min-height: 10rem;
+.planner-heading {
+  max-width: 22ch;
+  margin-top: var(--space-3);
+  font-size: clamp(1.3rem, 1rem + 1vw, 1.8rem);
 }
 
-input:focus,
-textarea:focus,
-button:focus {
-  outline: 2px solid rgba(70, 118, 121, 0.45);
-  outline-offset: 2px;
+.gt-user-card {
+  min-width: 13rem;
+  padding: 0.75em 1em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
 }
 
-.compact-field {
-  max-width: 10rem;
-}
-
-.primary-button,
-.secondary-button {
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-  padding: 0.9rem 1.2rem;
-}
-
-.primary-button {
-  background: linear-gradient(135deg, #203337 0%, #467679 100%);
-  color: #fff8ef;
-}
-
-.primary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.secondary-button {
-  background: rgba(32, 51, 55, 0.08);
-  color: var(--ink);
-}
-
-.link-button {
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-}
-
-.session-card,
-.response-card,
-.log-card {
-  border: 1px solid rgba(32, 51, 55, 0.12);
-  border-radius: 22px;
-  background: rgba(255, 251, 245, 0.68);
-}
-
-.session-card {
-  margin-top: 1.2rem;
-  padding: 1rem 1.1rem;
-}
-
-.session-name {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--ink);
+.gt-user-card .gt-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .session-chip {
-  min-width: 13rem;
-  padding: 0.9rem 1rem;
-  border-radius: 22px;
-  background: rgba(32, 51, 55, 0.08);
   display: grid;
-  gap: 0.2rem;
+  gap: 2px;
+}
+
+.session-chip strong {
+  color: var(--text-primary);
 }
 
 .session-chip span {
-  color: var(--text-soft);
-  font-size: 0.92rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
-.result-meta,
-.prompt-preview {
-  margin-top: 1rem;
+.planner-inner {
+  margin-top: var(--space-6);
+  background: var(--surface-panel-raised);
+}
+
+.gt-results-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.result-meta {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  color: var(--text-tertiary);
+  font: var(--text-mono-sm);
 }
 
 .prompt-preview {
-  padding: 1rem;
-  border-left: 4px solid rgba(70, 118, 121, 0.45);
-  background: rgba(70, 118, 121, 0.08);
-  border-radius: 0 16px 16px 0;
+  margin-top: var(--space-4);
+  padding: 0.875em 1em;
 }
 
 .response-card {
-  margin-top: 1rem;
-  padding: 1.1rem;
+  margin-top: var(--space-4);
   display: grid;
-  gap: 0.8rem;
+  gap: var(--space-3);
+  color: var(--text-primary);
+  font: var(--text-body);
 }
 
 .markdown-strong {
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 700;
 }
 
 .empty-state {
-  color: var(--text-soft);
-  margin-top: 1rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-4);
 }
 
 .logs-list {
   display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .log-card {
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
-.log-status {
-  font-size: 0.82rem;
-  font-weight: 700;
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: flex-start;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.log-time {
+  margin-top: var(--space-2);
 }
 
 .feedback-actions {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.85rem;
-}
-
-.feedback-button {
-  border: 1px solid rgba(32, 51, 55, 0.18);
-  background: transparent;
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.feedback-button-active-up {
-  background: rgba(70, 118, 121, 0.18);
-  border-color: rgba(70, 118, 121, 0.45);
-}
-
-.feedback-button-active-down {
-  background: rgba(190, 90, 70, 0.16);
-  border-color: rgba(190, 90, 70, 0.45);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 details {
-  margin-top: 0.85rem;
+  cursor: default;
+}
+
+details + details {
+  margin-top: var(--space-2);
 }
 
 summary {
   cursor: pointer;
-  color: var(--ink);
+  color: var(--text-primary);
+  font: var(--text-body-sm);
+}
+
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-xs);
 }
 
 pre {
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0.6rem 0 0;
-  padding: 0.85rem;
-  border-radius: 16px;
-  background: #f3ebde;
-  font-size: 0.86rem;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-well);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
   line-height: 1.45;
   overflow-x: auto;
 }
 
-.error-text {
-  color: #9f3f2f;
-  margin: 0;
+@media (max-width: 900px) {
+  .shell {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .gt-auth-grid {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+    gap: var(--space-4);
+    min-height: 0;
+  }
+
+  .gt-results-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-@media (max-width: 980px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
-    padding: 1rem;
-  }
-
-  .auth-hero {
-    min-height: auto;
-    align-content: start;
-  }
-
-  .hero-header {
-    flex-direction: column;
-  }
-
-  .workspace,
-  .results-grid {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 560px) {
   .shell {
-    padding: 1rem;
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .gt-auth-grid {
+    padding: var(--space-3);
+  }
+
+  .gt-planner-header {
+    gap: var(--space-3);
+  }
+
+  .gt-auth-header {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  h1 {
+    font-size: 1.4rem !important;
+  }
+
+  h2 {
+    font-size: 1.1rem !important;
   }
 }

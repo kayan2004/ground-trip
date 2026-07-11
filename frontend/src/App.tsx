@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import './App.css'
+import groundtripLogo from './assets/groundtrip-logo.svg'
 import {
   ApiError,
   createAgentRun,
@@ -50,6 +51,13 @@ function navigateTo(view: View, replace = false) {
   }
 
   window.history.pushState(null, '', nextUrl)
+}
+
+function statusPillTone(status: string | undefined): string {
+  if (status === 'completed') return 'gt-pill--positive'
+  if (status === 'partial') return 'gt-pill--brass'
+  if (status === 'failed') return 'gt-pill--negative'
+  return ''
 }
 
 function renderInlineBoldText(text: string) {
@@ -234,33 +242,37 @@ function App() {
 
   if (view !== 'app' || !session) {
     return (
-      <main className="auth-shell">
-        <section className="auth-hero">
-          <p className="eyebrow">Smart Travel Assistant</p>
-          <h1>Sign in before you ask the agent where to go.</h1>
-          <p className="hero-copy">
-            This app turns a plain-English travel request into a recommendation,
-            current conditions, and a tool-by-tool audit trail.
-          </p>
+      <main className="gt-auth-grid">
+        <section className="gt-panel auth-hero">
+          <img src={groundtripLogo} alt="GroundTrip" className="gt-logo" />
+          <h1 className="auth-hero-heading">Sign in before you ask the agent where to go.</h1>
+          <div className="pipeline-stages">
+            <span className="gt-pill gt-pill--brass">extract</span>
+            <span className="gt-pill">classify</span>
+            <span className="gt-pill">recommend</span>
+            <span className="gt-pill">RAG</span>
+            <span className="gt-pill">weather</span>
+            <span className="gt-pill gt-pill--positive">synthesize</span>
+          </div>
         </section>
 
-        <section className="panel auth-page-panel">
-          <div className="panel-heading">
+        <section className="gt-panel auth-page-panel">
+          <div className="gt-panel-header gt-auth-header">
             <div>
-              <p className="panel-label">Authentication</p>
+              <p className="gt-eyebrow">Authentication</p>
               <h2>{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
             </div>
-            <div className="segmented-control" role="tablist" aria-label="Auth mode">
+            <div className="gt-segmented" role="tablist" aria-label="Auth mode">
               <button
                 type="button"
-                className={authMode === 'login' ? 'active' : ''}
+                className={authMode === 'login' ? 'gt-segmented-btn active' : 'gt-segmented-btn'}
                 onClick={() => handleAuthViewChange('login')}
               >
                 Login
               </button>
               <button
                 type="button"
-                className={authMode === 'signup' ? 'active' : ''}
+                className={authMode === 'signup' ? 'gt-segmented-btn active' : 'gt-segmented-btn'}
                 onClick={() => handleAuthViewChange('signup')}
               >
                 Sign up
@@ -270,39 +282,49 @@ function App() {
 
           <form className="form-grid" onSubmit={handleAuthSubmit}>
             {authMode === 'signup' ? (
-              <label>
+              <label className="gt-field">
                 <span>Full name</span>
                 <input
+                  className="gt-input"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
                   placeholder="Kayan"
+                  autoComplete="name"
                 />
               </label>
             ) : null}
-            <label>
+            <label className="gt-field">
               <span>Email</span>
               <input
+                className="gt-input"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </label>
-            <label>
+            <label className="gt-field">
               <span>Password</span>
               <input
+                className="gt-input"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="At least 8 characters"
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                 required
               />
             </label>
-            {authError ? <p className="error-text">{authError}</p> : null}
-            <button type="submit" className="primary-button" disabled={authPending}>
+            {authError ? (
+              <p className="error-text" role="alert">
+                {authError}
+              </p>
+            ) : null}
+            <button type="submit" className="gt-btn gt-btn--primary" disabled={authPending}>
               {authPending
-                ? 'Working...'
+                ? 'Working…'
                 : authMode === 'login'
                   ? 'Login and continue'
                   : 'Create account and continue'}
@@ -315,47 +337,47 @@ function App() {
 
   return (
     <main className="shell">
-      <section className="hero-panel">
-        <div className="hero-header">
+      <section className="gt-panel hero-panel">
+        <div className="gt-planner-header">
           <div>
-            <p className="eyebrow">Smart Travel Assistant</p>
-            <h1>Prompt-first trip planning with your backend agent in the loop.</h1>
+            <img src={groundtripLogo} alt="GroundTrip" className="gt-logo" />
+            <h1 className="planner-heading">Prompt-first trip planning with your backend agent in the loop.</h1>
           </div>
-          <div className="session-chip">
-            <strong>{session.user.full_name || 'Traveler'}</strong>
-            <span>{session.user.email}</span>
+          <div className="gt-panel gt-panel--raised gt-user-card">
+            <div className="session-chip">
+              <strong>{session.user.full_name || 'Traveler'}</strong>
+              <span>{session.user.email}</span>
+            </div>
+            <button type="button" className="gt-btn gt-btn--ghost" onClick={handleLogout}>
+              Log out
+            </button>
           </div>
         </div>
-        <div className="hero-meta">
-          <button type="button" className="link-button" onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
-      </section>
 
-      <section className="workspace app-workspace">
-        <div className="panel planner-panel">
-          <div className="panel-heading">
+        <div className="gt-panel planner-inner">
+          <div className="gt-panel-header">
             <div>
-              <p className="panel-label">Planner</p>
+              <p className="gt-eyebrow">Planner</p>
               <h2>Ask for a trip recommendation</h2>
             </div>
-            <span className="status-pill status-ready">Ready</span>
+            <span className="gt-pill gt-pill--positive">ready</span>
           </div>
 
           <form className="form-grid" onSubmit={handlePlanSubmit}>
-            <label>
+            <label className="gt-field">
               <span>Prompt</span>
               <textarea
+                className="gt-textarea"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 rows={7}
                 required
               />
             </label>
-            <label className="compact-field">
+            <label className="gt-field gt-compact-field">
               <span>RAG top K</span>
               <input
+                className="gt-input"
                 type="number"
                 min={1}
                 max={8}
@@ -363,33 +385,37 @@ function App() {
                 onChange={(event) => setRetrievalTopK(Number(event.target.value))}
               />
             </label>
-            {plannerError ? <p className="error-text">{plannerError}</p> : null}
-            <button type="submit" className="primary-button" disabled={plannerPending}>
-              {plannerPending ? 'Planning trip...' : 'Run agent'}
+            {plannerError ? (
+              <p className="error-text" role="alert">
+                {plannerError}
+              </p>
+            ) : null}
+            <button type="submit" className="gt-btn gt-btn--primary" disabled={plannerPending}>
+              {plannerPending ? 'Planning trip…' : 'Run agent'}
             </button>
           </form>
         </div>
       </section>
 
-      <section className="results-grid">
-        <article className="panel result-panel">
-          <div className="panel-heading">
+      <section className="gt-results-grid">
+        <article className="gt-panel">
+          <div className="gt-panel-header">
             <div>
-              <p className="panel-label">Final answer</p>
+              <p className="gt-eyebrow">Final answer</p>
               <h2>Saved recommendation</h2>
             </div>
-            <span className={`status-pill status-${result?.status || 'idle'}`}>
-              {result?.status || 'No run yet'}
+            <span className={`gt-pill ${statusPillTone(result?.status)}`}>
+              {result?.status || 'no run yet'}
             </span>
           </div>
 
           {result ? (
             <>
-              <div className="result-meta">
-                <span>Run #{result.id}</span>
+              <div className="result-meta gt-mono">
+                <span>run #{result.id}</span>
                 <span>{new Date(result.created_at).toLocaleString()}</span>
               </div>
-              <p className="prompt-preview">{result.prompt}</p>
+              <p className="gt-panel gt-panel--paper prompt-preview">{result.prompt}</p>
               <div className="response-card">
                 {result.response.split('\n').map((line, index) => (
                   <p key={`${line}-${index}`}>{renderInlineBoldText(line)}</p>
@@ -404,38 +430,44 @@ function App() {
           )}
         </article>
 
-        <article className="panel recommendations-panel">
-          <div className="panel-heading">
+        <article className="gt-panel">
+          <div className="gt-panel-header">
             <div>
-              <p className="panel-label">Recommendations</p>
+              <p className="gt-eyebrow">Recommendations</p>
               <h2>Rate the ranked slate</h2>
             </div>
-            <span className="status-pill">
-              {result ? `${result.recommendations.length} destinations` : 'No slate yet'}
+            <span className="gt-pill">
+              {result ? `${result.recommendations.length} destinations` : 'no slate yet'}
             </span>
           </div>
 
-          {feedbackError ? <p className="error-text">{feedbackError}</p> : null}
+          {feedbackError ? (
+            <p className="error-text" role="alert">
+              {feedbackError}
+            </p>
+          ) : null}
 
           {result?.recommendations.length ? (
             <div className="logs-list">
               {result.recommendations.map((recommendation) => {
                 const activeVerdict = feedbackByRecommendation[recommendation.id]
                 return (
-                  <article key={recommendation.id} className="log-card">
+                  <article key={recommendation.id} className="gt-panel gt-panel--raised log-card">
                     <div className="log-header">
                       <strong>
                         #{recommendation.rank_position} {recommendation.destination_name}, {recommendation.country}
                       </strong>
-                      <span className="log-status">{recommendation.score.toFixed(4)}</span>
+                      <span className="gt-mono" style={{ color: 'var(--brass)' }}>
+                        {recommendation.score.toFixed(4)}
+                      </span>
                     </div>
                     <div className="feedback-actions">
                       <button
                         type="button"
                         className={
                           activeVerdict === 1
-                            ? 'feedback-button feedback-button-active-up'
-                            : 'feedback-button'
+                            ? 'gt-stamp gt-stamp--positive gt-stamp--active'
+                            : 'gt-stamp gt-stamp--positive'
                         }
                         aria-pressed={activeVerdict === 1}
                         onClick={() => handleFeedback(recommendation.id, 1)}
@@ -446,8 +478,8 @@ function App() {
                         type="button"
                         className={
                           activeVerdict === -1
-                            ? 'feedback-button feedback-button-active-down'
-                            : 'feedback-button'
+                            ? 'gt-stamp gt-stamp--negative gt-stamp--active'
+                            : 'gt-stamp gt-stamp--negative'
                         }
                         aria-pressed={activeVerdict === -1}
                         onClick={() => handleFeedback(recommendation.id, -1)}
@@ -467,26 +499,28 @@ function App() {
           )}
         </article>
 
-        <article className="panel logs-panel">
-          <div className="panel-heading">
+        <article className="gt-panel">
+          <div className="gt-panel-header">
             <div>
-              <p className="panel-label">Tool trail</p>
+              <p className="gt-eyebrow">Tool trail</p>
               <h2>What the agent used</h2>
             </div>
-            <span className="status-pill">
-              {result ? `${result.tool_logs.length} logs` : 'No logs yet'}
+            <span className="gt-pill">
+              {result ? `${result.tool_logs.length} logs` : 'no logs yet'}
             </span>
           </div>
 
           {result?.tool_logs.length ? (
             <div className="logs-list">
               {result.tool_logs.map((log) => (
-                <article key={log.id} className="log-card">
+                <article key={log.id} className="gt-panel gt-panel--raised log-card">
                   <div className="log-header">
                     <strong>{log.tool_name}</strong>
-                    <span className={`log-status status-${log.status}`}>{log.status}</span>
+                    <span className={`gt-pill ${log.status === 'success' ? 'gt-pill--positive' : 'gt-pill--negative'}`}>
+                      {log.status}
+                    </span>
                   </div>
-                  <p className="log-time">
+                  <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
                     {new Date(log.created_at).toLocaleString()}
                   </p>
                   <details>

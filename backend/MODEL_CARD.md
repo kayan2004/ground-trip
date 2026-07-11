@@ -1,4 +1,4 @@
-# Model Card: Smart Travel Assistant
+# Model Card: Smart Travel Planner
 
 This consolidates the ML/AI components scattered across `backend/README.md` into one reference:
 what each one is, what data it was fit/evaluated on, real measured numbers (not estimates), current

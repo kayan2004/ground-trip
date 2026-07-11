@@ -1,4 +1,4 @@
-# Smart Travel Assistant
+# Smart Travel Planner
 
 An end-to-end smart travel planner that turns a natural-language trip request into:
 
@@ -137,7 +137,7 @@ flowchart LR
 ## Repository Layout
 
 ```text
-smart_travel_assistant/
+smart_travel_planner/
 ├── backend/
 │   ├── app/
 │   │   ├── agent/

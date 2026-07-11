@@ -1,3 +1,5 @@
+name: smart_travel_planner
+
 services:
   db:
     image: pgvector/pgvector:0.8.2-pg17
@@ -22,7 +24,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/smart_travel_assistant
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/smart_travel_planner
       FRONTEND_ORIGIN: http://localhost:5173
     depends_on:
       db:

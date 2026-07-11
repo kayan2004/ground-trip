@@ -7,13 +7,13 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
-    app_name: str = "Smart Travel Assistant API"
+    app_name: str = "Smart Travel Planner API"
     app_env: str = "development"
     app_debug: bool = True
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     frontend_origin: str = "http://localhost:5173"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_assistant"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner"
     database_echo: bool = False
     jwt_secret_key: str = "change-this-development-secret-to-32-plus-chars"
     jwt_algorithm: str = "HS256"
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     rag_chunk_size: int = 800
     rag_chunk_overlap: int = 120
     rag_fetch_timeout_seconds: float = 20.0
-    rag_user_agent: str = "smart-travel-assistant-rag-ingestion/1.0"
+    rag_user_agent: str = "smart-travel-planner-rag-ingestion/1.0"
     rag_embedding_batch_size: int = 32
     rag_embedding_max_request_tokens: int = 10000
     rag_estimated_chars_per_token: int = 4
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # with it; otherwise cosine order is used, exactly as before.
     ranker_enabled: bool = False
     discord_webhook_url: str = ""
-    discord_webhook_username: str = "Smart Travel Assistant"
+    discord_webhook_username: str = "Smart Travel Planner"
     discord_webhook_timeout_seconds: float = 15.0
     discord_webhook_max_retries: int = 3
     discord_webhook_retry_backoff_seconds: float = 1.0
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     destination_embedding_version: str = "v1"
     destination_fetch_timeout_seconds: float = 20.0
     destination_user_agent: str = (
-        "smart-travel-assistant-destination-ingestion/1.0 "
+        "smart-travel-planner-destination-ingestion/1.0 "
         "(contact: kayanabdepbaki@gmail.com)"
     )
     destination_max_retries: int = 3

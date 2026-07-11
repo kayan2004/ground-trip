@@ -1,0 +1,149 @@
+/* ============================================================
+   GROUNDTRIP — DESIGN TOKENS
+   Flight-plan / instrument-panel system. Six base colors are the
+   source of truth for color; everything else here is a derived
+   tint/shade, a semantic alias, or a type/spacing/motion scale.
+   Ported from the imported Claude Design "Groundtrip" system.
+   ============================================================ */
+
+:root {
+  /* ---- Color: base six (source of truth) ---- */
+  --navy-deep: #0e1a22; /* primary background */
+  --navy-panel: #16262f; /* card / surface background */
+  --paper: #f1ead8; /* inset light panels — contrast, not main bg */
+  --brass: #e8c468; /* accent, CTAs, active/focus states */
+  --signal-green: #6fa98c; /* live data, positive feedback ("good match") */
+  --clay: #c1584a; /* errors, negative feedback ("not a fit") */
+
+  /* ---- Color: derived tints/shades ---- */
+  --navy-border: #26383f;
+  --navy-border-strong: #33474f;
+  --navy-raised: #1c2e38;
+  --navy-inset: #0a1319;
+
+  --brass-dim: #a98b4b;
+  --brass-bright: #f3d583;
+  --brass-wash: rgba(232, 196, 104, 0.12);
+  --brass-wash-strong: rgba(232, 196, 104, 0.22);
+
+  --paper-dim: #e4d8bc;
+  --paper-line: rgba(14, 26, 34, 0.14);
+
+  --signal-green-dim: #4f7e67;
+  --signal-green-wash: rgba(111, 169, 140, 0.14);
+
+  --clay-dim: #954738;
+  --clay-wash: rgba(193, 88, 74, 0.14);
+
+  /* ---- Color: semantic aliases ---- */
+  --surface-bg: var(--navy-deep);
+  --surface-panel: var(--navy-panel);
+  --surface-panel-raised: var(--navy-raised);
+  --surface-inset: var(--paper);
+  --surface-inset-dim: var(--paper-dim);
+  --surface-well: var(--navy-inset);
+
+  --border-hairline: var(--navy-border);
+  --border-strong: var(--navy-border-strong);
+  --border-on-paper: var(--paper-line);
+
+  --text-primary: #eee7d6;
+  --text-secondary: #9fb2ba;
+  --text-tertiary: #6c7e86;
+  --text-on-paper: #16262f;
+  --text-on-paper-soft: #4b5a57;
+  --text-on-brass: #16262f;
+
+  --accent: var(--brass);
+  --accent-hover: var(--brass-bright);
+  --accent-active: #d1ac55;
+  --accent-dim: var(--brass-dim);
+
+  --positive: var(--signal-green);
+  --positive-dim: var(--signal-green-dim);
+  --negative: var(--clay);
+  --negative-dim: var(--clay-dim);
+
+  --focus-ring: var(--brass);
+  --route-line-color: var(--brass);
+  --route-line-dim: var(--brass-wash-strong);
+
+  /* ---- Typography ----
+     Fraunces/Public Sans/IBM Plex Mono ship via the @fontsource
+     packages loaded in main.tsx, which register the family names
+     below (Fraunces as its variable-font family name). */
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', serif;
+  --font-body: 'Public Sans', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+
+  --text-h1-family: var(--font-display);
+  --text-h1-weight: 700;
+  --text-h1-size: clamp(2.6rem, calc(2rem + 2.8vw), 4.6rem);
+  --text-h1-leading: 0.98;
+
+  --text-h2-family: var(--font-display);
+  --text-h2-weight: 600;
+  --text-h2-size: clamp(1.7rem, calc(1.4rem + 1.2vw), 2.5rem);
+  --text-h2-leading: 1.08;
+
+  --text-h3-family: var(--font-display);
+  --text-h3-weight: 600;
+  --text-h3-size: clamp(1.25rem, calc(1.1rem + 0.6vw), 1.6rem);
+  --text-h3-leading: 1.2;
+
+  --text-body-lg: 400 1.125rem/1.6 var(--font-body);
+  --text-body: 400 1rem/1.6 var(--font-body);
+  --text-body-sm: 400 0.9rem/1.55 var(--font-body);
+
+  --text-label: 600 0.78rem/1.3 var(--font-body);
+  --text-caption: 400 0.8rem/1.4 var(--font-body);
+
+  --text-mono-lg: 500 1.05rem/1.4 var(--font-mono);
+  --text-mono: 500 0.88rem/1.5 var(--font-mono);
+  --text-mono-sm: 500 0.76rem/1.4 var(--font-mono);
+
+  --tracking-label: 0.14em;
+  --tracking-mono: 0.01em;
+  --tracking-display: -0.02em;
+
+  /* ---- Spacing & radius: 4px base scale ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px; /* reserved: stamp/punch toggle only */
+
+  --panel-padding: var(--space-6);
+  --panel-padding-tight: var(--space-4);
+
+  --stroke-hairline: 1px;
+  --stroke-md: 1.5px;
+
+  /* ---- Motion & elevation ---- */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 420ms;
+
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 12px 28px rgba(0, 0, 0, 0.35);
+  --shadow-panel-raised: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 16px 36px rgba(0, 0, 0, 0.45);
+  --shadow-focus: 0 0 0 3px var(--brass-wash-strong);
+  --glow-brass: 0 0 0 1px var(--brass-wash), 0 0 24px rgba(232, 196, 104, 0.16);
+}

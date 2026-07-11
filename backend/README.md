@@ -9,16 +9,16 @@ sections below go deeper on implementation; the model card is the "what and why"
 
 ```powershell
 # One-time: create the test database (same Postgres the dev stack uses)
-docker exec smart_travel_assistant-db-1 psql -U postgres -c "CREATE DATABASE smart_travel_assistant_test"
+docker exec smart_travel_planner-db-1 psql -U postgres -c "CREATE DATABASE smart_travel_planner_test"
 
 # From backend/
-$env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_assistant_test"
+$env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner_test"
 uv run pytest --cov --cov-report=term-missing
 ```
 
-Tests never touch the dev database (`smart_travel_assistant`) - `conftest.py` asserts `"test"` is in
+Tests never touch the dev database (`smart_travel_planner`) - `conftest.py` asserts `"test"` is in
 the configured `DATABASE_URL` before running anything, and creates + migrates
-`smart_travel_assistant_test` automatically on first run if it doesn't exist yet. Isolation between
+`smart_travel_planner_test` automatically on first run if it doesn't exist yet. Isolation between
 tests is **truncate-after**, not transactional rollback - several services under test commit
 internally (`persist_recommendation_slate`, `submit_feedback`), which would silently defeat a
 rollback-based recipe.
@@ -126,7 +126,7 @@ At this step, we have only added the connection layer. ORM models, migrations, a
 
 ### Docker Database
 
-The project now includes a standalone Postgres service in the root [docker-compose.yaml](/abs/path/c:/Users/Kayan/OneDrive/Desktop/SE%20Factory/smart_travel_assistant/docker-compose.yaml).
+The project now includes a standalone Postgres service in the root [docker-compose.yaml](../docker-compose.yaml).
 
 - service name: `db`
 - image: `pgvector/pgvector:0.8.2-pg17`

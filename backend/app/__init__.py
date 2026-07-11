@@ -1,2 +1,2 @@
-"""Application package for the Smart Travel Assistant backend."""
+"""Application package for the Smart Travel Planner backend."""
 

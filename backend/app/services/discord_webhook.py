@@ -105,7 +105,7 @@ def _format_trip_plan_message(
 ) -> str:
     safe_prompt = prompt.strip().replace("\n", " ")
     header = (
-        "## Smart Travel Assistant Recommendation\n"
+        "## Smart Travel Planner Recommendation\n"
         f"**User:** {user_email}\n"
         f"**Run status:** {status}\n"
     )
