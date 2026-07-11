@@ -3,7 +3,7 @@ truncate-based test isolation, and full ORM model registration.
 
 Test DB target is controlled by the DATABASE_URL env var - set it before
 collecting tests (see the "Running Tests" section of backend/README.md).
-Defaults to a local `smart_travel_planner_test` database on the same
+Defaults to a local `ground_trip_test` database on the same
 Postgres the dev stack already uses.
 """
 
@@ -18,7 +18,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner_test",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/ground_trip_test",
 )
 
 import asyncpg

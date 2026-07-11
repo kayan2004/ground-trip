@@ -1,4 +1,4 @@
-name: smart_travel_planner
+name: ground-trip
 
 services:
   db:
@@ -23,7 +23,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/smart_travel_planner
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/ground_trip
       FRONTEND_ORIGIN: http://localhost:5173
     depends_on:
       db:
@@ -44,3 +44,12 @@ services:
 
 volumes:
   postgres_data:
+    # Pinned to the pre-existing volume from the smart_travel_planner ->
+    # ground-trip project rename (2026-07-11) so the real data isn't
+    # orphaned under a new project-prefixed volume name. The database
+    # inside it was already renamed in place (ALTER DATABASE ... RENAME).
+    # external: true silences Compose's project-ownership-mismatch warning -
+    # this volume was created under the old project name, not this one, on
+    # purpose.
+    name: smart_travel_planner_postgres_data
+    external: true

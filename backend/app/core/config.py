@@ -36,7 +36,7 @@ class DatabaseSettings(BaseSettings):
         env_prefix="DATABASE_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
     )
 
-    url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner"
+    url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ground_trip"
     echo: bool = False
 
 
@@ -65,7 +65,7 @@ class RagSettings(BaseSettings):
     chunk_size: int = 800
     chunk_overlap: int = 120
     fetch_timeout_seconds: float = 20.0
-    user_agent: str = "smart-travel-planner-rag-ingestion/1.0"
+    user_agent: str = "ground-trip-rag-ingestion/1.0"
     embedding_batch_size: int = 32
     embedding_max_request_tokens: int = 10000
     estimated_chars_per_token: int = 4
@@ -179,7 +179,7 @@ class DestinationSettings(BaseSettings):
     embedding_version: str = "v1"
     fetch_timeout_seconds: float = 20.0
     user_agent: str = (
-        "smart-travel-planner-destination-ingestion/1.0 "
+        "ground-trip-destination-ingestion/1.0 "
         "(contact: kayanabdepbaki@gmail.com)"
     )
     max_retries: int = 3

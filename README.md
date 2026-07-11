@@ -143,7 +143,7 @@ flowchart LR
 ## Repository Layout
 
 ```text
-smart_travel_planner/
+ground-trip/
 ├── backend/
 │   ├── app/
 │   │   ├── agent/

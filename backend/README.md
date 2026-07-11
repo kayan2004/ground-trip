@@ -8,20 +8,20 @@ Workflow" section below. The sections below go deeper on implementation; the mod
 
 ## Running Tests
 
-![CI](https://github.com/kayan2004/smart-travel-planner/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/kayan2004/ground-trip/actions/workflows/ci.yml/badge.svg)
 
 ```powershell
 # One-time: create the test database (same Postgres the dev stack uses)
-docker exec smart_travel_planner-db-1 psql -U postgres -c "CREATE DATABASE smart_travel_planner_test"
+docker exec ground-trip-db-1 psql -U postgres -c "CREATE DATABASE ground_trip_test"
 
 # From backend/
-$env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_travel_planner_test"
+$env:DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/ground_trip_test"
 uv run pytest --cov --cov-report=term-missing
 ```
 
-Tests never touch the dev database (`smart_travel_planner`) - `conftest.py` asserts `"test"` is in
+Tests never touch the dev database (`ground_trip`) - `conftest.py` asserts `"test"` is in
 the configured `DATABASE_URL` before running anything, and creates + migrates
-`smart_travel_planner_test` automatically on first run if it doesn't exist yet. Isolation between
+`ground_trip_test` automatically on first run if it doesn't exist yet. Isolation between
 tests is **truncate-after**, not transactional rollback - several services under test commit
 internally (`persist_recommendation_slate`, `submit_feedback`), which would silently defeat a
 rollback-based recipe.
