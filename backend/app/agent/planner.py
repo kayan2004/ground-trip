@@ -1,7 +1,8 @@
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from app.agent.graph import build_trip_planner_graph
+from app.agent.graph import TripPlannerRuntime, build_trip_planner_graph
 from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import ToolRegistry
 from app.schemas.agent_runs import AgentRunCreate
@@ -30,6 +31,7 @@ async def run_trip_planner(
     tool_context: ToolContext | None,
 ) -> PlannerResult:
     graph = build_trip_planner_graph()
+    thread_id = str(uuid.uuid4())
     final_state = await graph.ainvoke(
         {
             "prompt": payload.prompt,
@@ -38,9 +40,9 @@ async def run_trip_planner(
             "location_query": payload.location_query,
             "location_country_code": payload.location_country_code,
             "retrieval_top_k": payload.retrieval_top_k,
-            "tool_registry": tool_registry,
-            "tool_context": tool_context,
-        }
+        },
+        config={"configurable": {"thread_id": thread_id}},
+        context=TripPlannerRuntime(tool_registry=tool_registry, tool_context=tool_context),
     )
 
     return PlannerResult(

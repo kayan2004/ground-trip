@@ -1,8 +1,11 @@
 import json
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, NotRequired, TypedDict
 
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
 
 from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import ToolRegistry
@@ -11,6 +14,12 @@ from app.schemas.live_conditions import LiveConditionsRequest
 from app.schemas.rag_retrieval import RagRetrievalRequest
 from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.llm import extract_request_fields, synthesize_trip_response
+
+
+@dataclass
+class TripPlannerRuntime:
+    tool_registry: ToolRegistry | None
+    tool_context: ToolContext | None
 
 
 class TripPlannerState(TypedDict):
@@ -25,8 +34,6 @@ class TripPlannerState(TypedDict):
     recommended_destinations: NotRequired[list[dict[str, Any]]]
     final_response: NotRequired[str | None]
     tool_logs: list[dict[str, str]]
-    tool_registry: NotRequired[ToolRegistry | None]
-    tool_context: NotRequired[ToolContext | None]
 
 
 def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
@@ -42,10 +49,12 @@ def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
     }
 
 
-async def extract_request_fields_node(state: TripPlannerState) -> TripPlannerState:
+async def extract_request_fields_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_context = state.get("tool_context")
+    tool_context = runtime.context.tool_context
 
     if (
         state.get("travel_profile") is not None
@@ -141,11 +150,13 @@ async def extract_request_fields_node(state: TripPlannerState) -> TripPlannerSta
     }
 
 
-async def retrieve_context_node(state: TripPlannerState) -> TripPlannerState:
+async def retrieve_context_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     retrieval_input = {
         "query": state["prompt"],
@@ -225,11 +236,13 @@ async def retrieve_context_node(state: TripPlannerState) -> TripPlannerState:
     }
 
 
-async def recommend_destinations_node(state: TripPlannerState) -> TripPlannerState:
+async def recommend_destinations_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     travel_profile = state.get("travel_profile")
 
@@ -331,11 +344,13 @@ async def recommend_destinations_node(state: TripPlannerState) -> TripPlannerSta
     return updates
 
 
-async def live_conditions_node(state: TripPlannerState) -> TripPlannerState:
+async def live_conditions_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     recommended_destinations = state.get("recommended_destinations") or []
     weather_location_query = state.get("location_query") or state.get("destination_name")
@@ -437,11 +452,13 @@ async def live_conditions_node(state: TripPlannerState) -> TripPlannerState:
         }
 
 
-async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
+async def synthesize_response_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     response_sections = list(state["response_sections"])
     destination_name = state.get("destination_name")
     recommended_destinations = state.get("recommended_destinations") or []
-    tool_context = state.get("tool_context")
+    tool_context = runtime.context.tool_context
 
     if destination_name is not None:
         response_sections.append(
@@ -488,7 +505,8 @@ async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
 
 @lru_cache(maxsize=1)
 def build_trip_planner_graph():
-    graph = StateGraph(TripPlannerState)
+    checkpointer = InMemorySaver()
+    graph = StateGraph(TripPlannerState, context_schema=TripPlannerRuntime)
     graph.add_node("initialize", initialize_trip_state)
     graph.add_node("extract_request_fields", extract_request_fields_node)
     graph.add_node("recommend_destinations", recommend_destinations_node)
@@ -504,4 +522,4 @@ def build_trip_planner_graph():
     graph.add_edge("live_conditions", "synthesize_response")
     graph.add_edge("synthesize_response", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
