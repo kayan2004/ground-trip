@@ -74,6 +74,7 @@ async def test_run_trip_planner_returns_needs_input_then_completes_on_resume(mon
 
         first = await run_trip_planner(
             AgentRunCreate(prompt="A trip to Lisbon"),
+            user_id=1,
             tool_registry=registry,
             tool_context=tool_context,
         )
@@ -86,6 +87,7 @@ async def test_run_trip_planner_returns_needs_input_then_completes_on_resume(mon
                 thread_id=first.thread_id,
                 clarification_answer="Somewhere in Europe, ideally Portugal",
             ),
+            user_id=1,
             tool_registry=registry,
             tool_context=tool_context,
         )

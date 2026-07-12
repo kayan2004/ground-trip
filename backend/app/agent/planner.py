@@ -36,12 +36,18 @@ class PlannerNeedsInput:
 async def run_trip_planner(
     payload: AgentRunCreate,
     *,
+    user_id: int,
     tool_registry: ToolRegistry | None,
     tool_context: ToolContext | None,
 ) -> PlannerResult | PlannerNeedsInput:
     graph = build_trip_planner_graph()
     thread_id = payload.thread_id or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    # Namespace the checkpointer's thread key by user so a resume can only ever
+    # find a paused thread that belongs to the same user. The plain `thread_id`
+    # (unprefixed) is what's returned to/round-tripped by the frontend - callers
+    # never see or send the composite key.
+    composite_thread_id = f"{user_id}:{thread_id}"
+    config = {"configurable": {"thread_id": composite_thread_id}}
     runtime_context = TripPlannerRuntime(tool_registry=tool_registry, tool_context=tool_context)
 
     graph_input: Any
@@ -66,6 +72,13 @@ async def run_trip_planner(
             question=interrupt_payload["question"],
             turn=interrupt_payload["turn"],
         )
+
+    # The run reached a terminal state (no interrupt) - the caller persists
+    # the resulting AgentRun row, and this thread will never be resumed
+    # again, so drop its checkpoint chain from the in-memory checkpointer to
+    # bound memory growth across completed runs.
+    if graph.checkpointer is not None:
+        await graph.checkpointer.adelete_thread(composite_thread_id)
 
     return PlannerResult(
         status=str(final_state["status"]),

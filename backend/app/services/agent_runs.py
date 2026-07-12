@@ -21,6 +21,7 @@ async def create_agent_run(
 ) -> AgentRun | PlannerNeedsInput:
     planner_result = await run_trip_planner(
         payload,
+        user_id=current_user.id,
         tool_registry=tool_registry,
         tool_context=tool_context,
     )
