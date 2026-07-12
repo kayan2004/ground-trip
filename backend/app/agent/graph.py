@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, NotRequired, TypedDict
@@ -17,6 +18,24 @@ from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.llm import extract_request_fields, synthesize_trip_response
 
 REQUIRED_SIGNAL_MAX_TURNS = 3
+
+_ENRICHMENT_PHRASES: list[tuple[str, "Callable[[TravelProfile], bool]"]] = [
+    ("enjoys hiking and outdoor trails", lambda profile: profile.has_hiking),
+    ("wants beach and coastal experiences", lambda profile: profile.has_beach),
+    ("seeks rich cultural and historical experiences", lambda profile: profile.culture_score >= 7.0),
+    ("prefers luxury and upscale travel", lambda profile: profile.luxury_score >= 7.0),
+    ("traveling family-friendly", lambda profile: profile.family_friendly >= 7.0),
+    ("wants vibrant nightlife", lambda profile: profile.nightlife_level >= 7.0),
+]
+
+
+def _build_enriched_query_text(prompt: str, travel_profile: TravelProfile | None) -> str:
+    if travel_profile is None:
+        return prompt
+    phrases = [phrase for phrase, predicate in _ENRICHMENT_PHRASES if predicate(travel_profile)]
+    if not phrases:
+        return prompt
+    return f"{prompt} ({'; '.join(phrases)})"
 
 
 @dataclass
@@ -353,7 +372,7 @@ async def recommend_destinations_node(
         }
 
     recommendation_input = DestinationRecommendationRequest(
-        query_text=state["prompt"],
+        query_text=_build_enriched_query_text(state["prompt"], travel_profile),
         budget_level=travel_profile.budget_level if travel_profile is not None else None,
         region=travel_profile.region if travel_profile is not None else None,
         limit=3,
