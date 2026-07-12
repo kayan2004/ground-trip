@@ -12,13 +12,7 @@ import {
   submitFeedback,
 } from './lib/api'
 import { JsonPayload } from './JsonPayload'
-import type {
-  AgentRunNeedsInput,
-  AgentRunRead,
-  AuthMode,
-  FeedbackVerdict,
-  SessionState,
-} from './types'
+import type { AgentRunRead, AuthMode, FeedbackVerdict, SessionState } from './types'
 import { WhyThisPick } from './WhyThisPick'
 
 type View = 'login' | 'signup' | 'app'
@@ -96,10 +90,6 @@ function App() {
   const [retrievalTopK, setRetrievalTopK] = useState(3)
   const [session, setSession] = useState<SessionState | null>(null)
   const [result, setResult] = useState<AgentRunRead | null>(null)
-  const [clarification, setClarification] = useState<
-    { threadId: string; question: string; turn: number } | null
-  >(null)
-  const [clarificationAnswer, setClarificationAnswer] = useState('')
   const [authError, setAuthError] = useState('')
   const [plannerError, setPlannerError] = useState('')
   const [authPending, setAuthPending] = useState(false)
@@ -217,58 +207,7 @@ function App() {
         prompt,
         retrieval_top_k: retrievalTopK,
       })
-      if (agentRun.status === 'needs_input') {
-        const needsInput = agentRun as AgentRunNeedsInput
-        setResult(null)
-        setClarification({
-          threadId: needsInput.thread_id,
-          question: needsInput.question,
-          turn: needsInput.turn,
-        })
-        setClarificationAnswer('')
-      } else {
-        setResult(agentRun as AgentRunRead)
-        setClarification(null)
-      }
-    } catch (error) {
-      setPlannerError(
-        error instanceof ApiError ? error.message : 'Trip planning failed.',
-      )
-    } finally {
-      setPlannerPending(false)
-    }
-  }
-
-  async function handleClarificationSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!session || !clarification) {
-      return
-    }
-
-    setPlannerPending(true)
-    setPlannerError('')
-
-    try {
-      const agentRun = await createAgentRun(session.token, {
-        prompt,
-        retrieval_top_k: retrievalTopK,
-        thread_id: clarification.threadId,
-        clarification_answer: clarificationAnswer,
-      })
-      if (agentRun.status === 'needs_input') {
-        const needsInput = agentRun as AgentRunNeedsInput
-        setResult(null)
-        setClarification({
-          threadId: needsInput.thread_id,
-          question: needsInput.question,
-          turn: needsInput.turn,
-        })
-        setClarificationAnswer('')
-      } else {
-        setResult(agentRun as AgentRunRead)
-        setClarification(null)
-      }
+      setResult(agentRun)
     } catch (error) {
       setPlannerError(
         error instanceof ApiError ? error.message : 'Trip planning failed.',
@@ -425,69 +364,37 @@ function App() {
             <span className="gt-pill gt-pill--positive">ready</span>
           </div>
 
-          {clarification ? (
-            <div className="form-grid">
-              <span className="gt-pill gt-pill--brass">Still forming your trip plan…</span>
-              <p className="gt-panel gt-panel--paper prompt-preview">{prompt}</p>
-              <p className="markdown-strong">{clarification.question}</p>
-              <form className="form-grid" onSubmit={handleClarificationSubmit}>
-                <label className="gt-field">
-                  <span>Your answer</span>
-                  <input
-                    className="gt-input"
-                    type="text"
-                    value={clarificationAnswer}
-                    onChange={(event) => setClarificationAnswer(event.target.value)}
-                    required
-                  />
-                </label>
-                {plannerError ? (
-                  <p className="error-text" role="alert">
-                    {plannerError}
-                  </p>
-                ) : null}
-                <button
-                  type="submit"
-                  className="gt-btn gt-btn--primary"
-                  disabled={plannerPending}
-                >
-                  {plannerPending ? 'Sending…' : 'Answer'}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <form className="form-grid" onSubmit={handlePlanSubmit}>
-              <label className="gt-field">
-                <span>Prompt</span>
-                <textarea
-                  className="gt-textarea"
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  rows={7}
-                  required
-                />
-              </label>
-              <label className="gt-field gt-compact-field">
-                <span>RAG top K</span>
-                <input
-                  className="gt-input"
-                  type="number"
-                  min={1}
-                  max={8}
-                  value={retrievalTopK}
-                  onChange={(event) => setRetrievalTopK(Number(event.target.value))}
-                />
-              </label>
-              {plannerError ? (
-                <p className="error-text" role="alert">
-                  {plannerError}
-                </p>
-              ) : null}
-              <button type="submit" className="gt-btn gt-btn--primary" disabled={plannerPending}>
-                {plannerPending ? 'Planning trip…' : 'Run agent'}
-              </button>
-            </form>
-          )}
+          <form className="form-grid" onSubmit={handlePlanSubmit}>
+            <label className="gt-field">
+              <span>Prompt</span>
+              <textarea
+                className="gt-textarea"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                rows={7}
+                required
+              />
+            </label>
+            <label className="gt-field gt-compact-field">
+              <span>RAG top K</span>
+              <input
+                className="gt-input"
+                type="number"
+                min={1}
+                max={8}
+                value={retrievalTopK}
+                onChange={(event) => setRetrievalTopK(Number(event.target.value))}
+              />
+            </label>
+            {plannerError ? (
+              <p className="error-text" role="alert">
+                {plannerError}
+              </p>
+            ) : null}
+            <button type="submit" className="gt-btn gt-btn--primary" disabled={plannerPending}>
+              {plannerPending ? 'Planning trip…' : 'Run agent'}
+            </button>
+          </form>
         </div>
       </section>
 

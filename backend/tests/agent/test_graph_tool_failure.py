@@ -5,10 +5,9 @@ app/agent/graph.py's core "tool failures are data, not exceptions" pattern
 """
 
 import pytest
-from langgraph.runtime import Runtime
 from pydantic import BaseModel
 
-from app.agent.graph import TripPlannerRuntime, retrieve_context_node
+from app.agent.graph import retrieve_context_node
 from app.agent.tools.base import BaseTool, ToolContext
 from app.agent.tools.registry import ToolRegistry
 from app.core.config import get_settings
@@ -28,7 +27,6 @@ async def test_tool_failure_produces_failed_tool_log_and_partial_status():
     registry = ToolRegistry()
     registry.register(_AlwaysFailsTool())
     context = ToolContext(settings=get_settings(), resources={}, session=None, http_client=None)
-    runtime = Runtime(context=TripPlannerRuntime(tool_registry=registry, tool_context=context))
 
     state = {
         "prompt": "a trip to nowhere",
@@ -36,9 +34,11 @@ async def test_tool_failure_produces_failed_tool_log_and_partial_status():
         "status": "completed",
         "response_sections": [],
         "tool_logs": [],
+        "tool_registry": registry,
+        "tool_context": context,
     }
 
-    result = await retrieve_context_node(state, runtime)
+    result = await retrieve_context_node(state)
 
     assert result["status"] == "partial"
     failed_logs = [log for log in result["tool_logs"] if log["status"] == "failed"]
@@ -53,16 +53,17 @@ async def test_missing_tool_runtime_also_degrades_gracefully():
     "can't run this tool" path this node handles - also data, not an
     exception.
     """
-    runtime = Runtime(context=TripPlannerRuntime(tool_registry=None, tool_context=None))
     state = {
         "prompt": "a trip to nowhere",
         "retrieval_top_k": 5,
         "status": "completed",
         "response_sections": [],
         "tool_logs": [],
+        "tool_registry": None,
+        "tool_context": None,
     }
 
-    result = await retrieve_context_node(state, runtime)
+    result = await retrieve_context_node(state)
 
     assert result["status"] == "partial"
     assert result["tool_logs"][0]["status"] == "failed"

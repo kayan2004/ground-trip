@@ -16,8 +16,6 @@ export interface TokenResponse {
 export interface PlannerRequest {
   prompt: string
   retrieval_top_k: number
-  thread_id?: string
-  clarification_answer?: string
 }
 
 export interface ToolLogRead {
@@ -68,13 +66,6 @@ export interface AgentRunRead {
   created_at: string
   tool_logs: ToolLogRead[]
   recommendations: RecommendationRead[]
-}
-
-export interface AgentRunNeedsInput {
-  status: 'needs_input'
-  thread_id: string
-  question: string
-  turn: number
 }
 
 export interface SessionState {

@@ -1,5 +1,4 @@
 import type {
-  AgentRunNeedsInput,
   AgentRunRead,
   FeedbackRead,
   FeedbackVerdict,
@@ -80,8 +79,8 @@ export async function fetchCurrentUser(token: string): Promise<UserRead> {
 export async function createAgentRun(
   token: string,
   payload: PlannerRequest,
-): Promise<AgentRunRead | AgentRunNeedsInput> {
-  return request<AgentRunRead | AgentRunNeedsInput>('/agent-runs', {
+): Promise<AgentRunRead> {
+  return request<AgentRunRead>('/agent-runs', {
     method: 'POST',
     token,
     body: payload,
