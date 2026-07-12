@@ -6,6 +6,7 @@ from typing import Any, NotRequired, TypedDict
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
+from langgraph.types import interrupt
 
 from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import ToolRegistry
@@ -14,6 +15,8 @@ from app.schemas.live_conditions import LiveConditionsRequest
 from app.schemas.rag_retrieval import RagRetrievalRequest
 from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.llm import extract_request_fields, synthesize_trip_response
+
+REQUIRED_SIGNAL_MAX_TURNS = 3
 
 
 @dataclass
@@ -34,6 +37,9 @@ class TripPlannerState(TypedDict):
     recommended_destinations: NotRequired[list[dict[str, Any]]]
     final_response: NotRequired[str | None]
     tool_logs: list[dict[str, str]]
+    clarification_turn: NotRequired[int]
+    clarification_qa: NotRequired[list[dict[str, str]]]
+    clarification_outcome: NotRequired[str]
 
 
 def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
@@ -46,6 +52,8 @@ def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
         "recommended_destinations": [],
         "final_response": None,
         "tool_logs": [],
+        "clarification_turn": 0,
+        "clarification_qa": [],
     }
 
 
@@ -148,6 +156,86 @@ async def extract_request_fields_node(
         "response_sections": response_sections,
         "tool_logs": tool_logs,
     }
+
+
+def _needs_destination_signal(state: TripPlannerState) -> bool:
+    return state.get("destination_name") is None and state.get("location_query") is None
+
+
+def _needs_region_signal(state: TripPlannerState) -> bool:
+    travel_profile = state.get("travel_profile")
+    return travel_profile is None or travel_profile.region == "Flexible"
+
+
+async def clarify_missing_fields_node(state: TripPlannerState) -> TripPlannerState:
+    tool_logs = list(state["tool_logs"])
+    turn = state.get("clarification_turn", 0)
+
+    needs_destination = _needs_destination_signal(state)
+    needs_region = _needs_region_signal(state)
+
+    if not (needs_destination or needs_region):
+        return {"tool_logs": tool_logs, "clarification_outcome": "satisfied"}
+
+    if turn >= REQUIRED_SIGNAL_MAX_TURNS:
+        tool_logs.append(
+            {
+                "tool_name": "clarification_loop",
+                "input_payload": state["prompt"],
+                "output_payload": (
+                    f"Clarification cap ({REQUIRED_SIGNAL_MAX_TURNS} rounds) reached; "
+                    "proceeding with best-effort fields."
+                ),
+                "status": "skipped",
+            }
+        )
+        return {"tool_logs": tool_logs, "clarification_outcome": "cap_reached"}
+
+    question = (
+        "Which destination or region are you considering, or would you like me to "
+        "recommend one based on your trip style?"
+        if needs_destination
+        else "Do you have a specific region or country in mind, or should I keep the search worldwide?"
+    )
+
+    tool_logs.append(
+        {
+            "tool_name": "clarification_loop",
+            "input_payload": state["prompt"],
+            "output_payload": question,
+            "status": "needs_input",
+        }
+    )
+
+    answer = interrupt({"question": question, "turn": turn})
+
+    tool_logs.append(
+        {
+            "tool_name": "clarification_loop",
+            "input_payload": question,
+            "output_payload": f"User answered: {answer}",
+            "status": "completed",
+        }
+    )
+
+    updates: dict[str, Any] = {
+        "prompt": f"{state['prompt']}\n\nAdditional detail from the traveler: {answer}",
+        "clarification_turn": turn + 1,
+        "clarification_qa": [
+            *state.get("clarification_qa", []),
+            {"question": question, "answer": answer},
+        ],
+        "tool_logs": tool_logs,
+        "clarification_outcome": "answered",
+    }
+    if needs_region:
+        updates["travel_profile"] = None
+
+    return updates
+
+
+def _route_after_clarification(state: TripPlannerState) -> str:
+    return "retry" if state.get("clarification_outcome") == "answered" else "proceed"
 
 
 async def retrieve_context_node(
@@ -509,6 +597,7 @@ def build_trip_planner_graph():
     graph = StateGraph(TripPlannerState, context_schema=TripPlannerRuntime)
     graph.add_node("initialize", initialize_trip_state)
     graph.add_node("extract_request_fields", extract_request_fields_node)
+    graph.add_node("clarify_missing_fields", clarify_missing_fields_node)
     graph.add_node("recommend_destinations", recommend_destinations_node)
     graph.add_node("retrieve_context", retrieve_context_node)
     graph.add_node("live_conditions", live_conditions_node)
@@ -516,7 +605,12 @@ def build_trip_planner_graph():
 
     graph.add_edge(START, "initialize")
     graph.add_edge("initialize", "extract_request_fields")
-    graph.add_edge("extract_request_fields", "recommend_destinations")
+    graph.add_edge("extract_request_fields", "clarify_missing_fields")
+    graph.add_conditional_edges(
+        "clarify_missing_fields",
+        _route_after_clarification,
+        {"retry": "extract_request_fields", "proceed": "recommend_destinations"},
+    )
     graph.add_edge("recommend_destinations", "retrieve_context")
     graph.add_edge("retrieve_context", "live_conditions")
     graph.add_edge("live_conditions", "synthesize_response")
