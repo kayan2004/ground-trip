@@ -219,6 +219,7 @@ function App() {
       })
       if (agentRun.status === 'needs_input') {
         const needsInput = agentRun as AgentRunNeedsInput
+        setResult(null)
         setClarification({
           threadId: needsInput.thread_id,
           question: needsInput.question,
@@ -257,6 +258,7 @@ function App() {
       })
       if (agentRun.status === 'needs_input') {
         const needsInput = agentRun as AgentRunNeedsInput
+        setResult(null)
         setClarification({
           threadId: needsInput.thread_id,
           question: needsInput.question,
