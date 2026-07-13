@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
-import type { SessionState } from './types'
 
-const sampleSession: SessionState = {
-  token: 'jwt-token',
-  user: { id: 1, email: 'traveler@test.com', full_name: 'Traveler', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+const sampleUser = {
+  id: 1,
+  email: 'traveler@test.com',
+  full_name: 'Traveler',
+  is_active: true,
+  created_at: '2026-01-01T00:00:00Z',
 }
 
 const sampleLlmOptions = [
@@ -16,12 +18,21 @@ const sampleLlmOptions = [
 ]
 
 function mockFetch() {
+  // Auth is a cookie now, invisible to this test - session restoration is
+  // simulated by having GET /auth/me always succeed with sampleUser,
+  // standing in for "the browser sent a valid cookie".
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString()
     if (url.includes('/llm-options')) {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(sampleLlmOptions),
+      })
+    }
+    if (url.includes('/auth/me')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(sampleUser),
       })
     }
     return Promise.resolve({
@@ -34,7 +45,6 @@ function mockFetch() {
 }
 
 beforeEach(() => {
-  window.localStorage.setItem('smart-travel-session', JSON.stringify(sampleSession))
   window.sessionStorage.clear()
   window.history.pushState(null, '', '/app')
   mockFetch()
@@ -42,7 +52,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  window.localStorage.clear()
   window.sessionStorage.clear()
 })
 

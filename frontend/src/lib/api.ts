@@ -14,7 +14,6 @@ const API_BASE_URL =
 
 type RequestOptions = {
   method?: 'GET' | 'POST'
-  token?: string
   body?: unknown
   headers?: Record<string, string>
 }
@@ -32,9 +31,13 @@ class ApiError extends Error {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? 'GET',
+    // Auth is an httpOnly cookie set by POST /auth/login, not a token this
+    // client ever sees - 'include' is required for the browser to send it
+    // cross-origin (frontend/backend are different ports) and to accept
+    // the Set-Cookie response on login.
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
       ...(options.headers ?? {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -49,6 +52,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
           ? payload.detail.map((item: { msg?: string }) => item.msg).join(', ')
           : `Request failed with status ${response.status}`
     throw new ApiError(detail, response.status)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
   }
 
   return (await response.json()) as T
@@ -75,18 +82,20 @@ export async function login(input: {
   })
 }
 
-export async function fetchCurrentUser(token: string): Promise<UserRead> {
-  return request<UserRead>('/auth/me', { token })
+export async function logout(): Promise<void> {
+  return request<void>('/auth/logout', { method: 'POST' })
+}
+
+export async function fetchCurrentUser(): Promise<UserRead> {
+  return request<UserRead>('/auth/me')
 }
 
 export async function createAgentRun(
-  token: string,
   payload: PlannerRequest,
   apiKey?: string,
 ): Promise<AgentRunRead> {
   return request<AgentRunRead>('/agent-runs', {
     method: 'POST',
-    token,
     body: payload,
     headers: apiKey ? { 'X-LLM-API-Key': apiKey } : undefined,
   })

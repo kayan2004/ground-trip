@@ -76,6 +76,9 @@ export interface AgentRunRead {
 }
 
 export interface SessionState {
-  token: string
+  // No token field - auth is an httpOnly cookie the frontend never reads
+  // or stores (see lib/api.ts). This just tracks who's logged in for UI
+  // purposes, restored on mount via GET /auth/me (which succeeds/fails
+  // based on the cookie the browser sends automatically).
   user: UserRead
 }

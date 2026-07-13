@@ -8,6 +8,12 @@ from app.core.config import get_settings
 
 password_hash = PasswordHash.recommended()
 
+# The httpOnly cookie name access tokens are issued under, in addition to
+# the ordinary Authorization: Bearer header - see
+# app/api/dependencies/auth.py (accepts either) and
+# app/api/routes/auth.py (sets/clears this cookie on login/logout).
+ACCESS_TOKEN_COOKIE_NAME = "access_token"
+
 
 def hash_password(password: str) -> str:
     return password_hash.hash(password)

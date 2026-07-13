@@ -9,6 +9,7 @@ import {
   fetchCurrentUser,
   fetchLlmOptions,
   login,
+  logout,
   signup,
   submitFeedback,
 } from './lib/api'
@@ -23,10 +24,8 @@ const LOGIN_ROUTE = '/login'
 const SIGNUP_ROUTE = '/signup'
 const FEEDBACK_SESSION_STORAGE_KEY = 'smart-travel-feedback-session-uuid'
 // Deliberately sessionStorage, not localStorage - a BYOK key should not
-// outlive the browser tab. This is a separate storage key from
-// 'smart-travel-session' (the auth JWT, which does use localStorage) - not
-// a refactor of that pattern, a different key with different lifetime
-// requirements.
+// outlive the browser tab. Unrelated to auth, which no longer touches
+// client-side storage at all (an httpOnly cookie now, see lib/api.ts).
 const BYOK_SESSION_STORAGE_KEY = 'smart-travel-byok'
 
 type ByokSelection = {
@@ -119,6 +118,11 @@ function App() {
   )
   const [retrievalTopK, setRetrievalTopK] = useState(3)
   const [session, setSession] = useState<SessionState | null>(null)
+  // Gates the initial render: restoring a session now means an async
+  // GET /auth/me call (the cookie is invisible to JS, there's nothing to
+  // read synchronously), so without this the login screen would flash
+  // briefly even for an already-logged-in user on every page load.
+  const [sessionChecked, setSessionChecked] = useState(false)
   const [result, setResult] = useState<AgentRunRead | null>(null)
   const [authError, setAuthError] = useState('')
   const [plannerError, setPlannerError] = useState('')
@@ -144,6 +148,17 @@ function App() {
   }, [])
 
   useEffect(() => {
+    // One-time cleanup: this key held a raw, still-valid JWT under the
+    // pre-cookie auth scheme. The new code never reads or writes it, but a
+    // browser that logged in before this migration landed still has it
+    // sitting in localStorage - a real, usable credential an XSS could
+    // read directly, doing nothing useful otherwise. Purge unconditionally
+    // on every load until enough time has passed that no browser could
+    // plausibly still have it.
+    window.localStorage.removeItem('smart-travel-session')
+  }, [])
+
+  useEffect(() => {
     fetchLlmOptions()
       .then(setLlmOptions)
       .catch(() => setLlmOptions([]))
@@ -158,46 +173,42 @@ function App() {
   }, [byokSelection])
 
   useEffect(() => {
-    const raw = window.localStorage.getItem('smart-travel-session')
-    if (!raw) {
-      if (view === 'app') {
-        navigateTo('login', true)
-        setView('login')
-      }
-      return
-    }
+    let cancelled = false
 
-    try {
-      const parsed = JSON.parse(raw) as SessionState
-      setSession(parsed)
+    fetchCurrentUser()
+      .then((user) => {
+        if (cancelled) return
+        setSession({ user })
+        if (getViewFromPath(window.location.pathname) !== 'app') {
+          navigateTo('app', true)
+          setView('app')
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        if (view === 'app') {
+          navigateTo('login', true)
+          setView('login')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionChecked(true)
+      })
 
-      if (getViewFromPath(window.location.pathname) !== 'app') {
-        navigateTo('app', true)
-        setView('app')
-      }
-    } catch {
-      window.localStorage.removeItem('smart-travel-session')
-      if (view === 'app') {
-        navigateTo('login', true)
-        setView('login')
-      }
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  function persistSession(nextSession: SessionState | null) {
+  function setSessionAndNavigate(nextSession: SessionState | null) {
     setSession(nextSession)
 
     if (nextSession) {
-      window.localStorage.setItem(
-        'smart-travel-session',
-        JSON.stringify(nextSession),
-      )
       navigateTo('app')
       setView('app')
       return
     }
 
-    window.localStorage.removeItem('smart-travel-session')
     navigateTo('login')
     setView('login')
   }
@@ -223,9 +234,9 @@ function App() {
         })
       }
 
-      const token = await login({ email, password })
-      const user = await fetchCurrentUser(token.access_token)
-      persistSession({ token: token.access_token, user })
+      await login({ email, password })
+      const user = await fetchCurrentUser()
+      setSessionAndNavigate({ user })
     } catch (error) {
       setAuthError(
         error instanceof ApiError ? error.message : 'Authentication failed.',
@@ -253,7 +264,6 @@ function App() {
         byokSelection.apiKey && byokSelection.provider && byokSelection.model,
       )
       const agentRun = await createAgentRun(
-        session.token,
         {
           prompt,
           retrieval_top_k: retrievalTopK,
@@ -293,8 +303,14 @@ function App() {
     }
   }
 
-  function handleLogout() {
-    persistSession(null)
+  async function handleLogout() {
+    try {
+      await logout()
+    } catch {
+      // Best-effort - even if the network call fails, drop the client-side
+      // session state so the UI doesn't strand the user on the app view.
+    }
+    setSessionAndNavigate(null)
     setResult(null)
   }
 
@@ -309,6 +325,16 @@ function App() {
 
   function handleRemoveByokKey() {
     setByokSelection({ provider: '', model: '', apiKey: '' })
+  }
+
+  if (!sessionChecked) {
+    return (
+      <main className="gt-auth-grid">
+        <section className="gt-panel auth-hero">
+          <img src={groundtripLogo} alt="GroundTrip" className="gt-logo" />
+        </section>
+      </main>
+    )
   }
 
   if (view !== 'app' || !session) {
