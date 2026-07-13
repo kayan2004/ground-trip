@@ -48,3 +48,9 @@ class InMemoryRateLimiter:
 # based on actual usage/cost tolerance once this is live.
 agent_run_ip_rate_limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60.0)
 agent_run_user_rate_limiter = InMemoryRateLimiter(max_requests=10, window_seconds=60.0)
+
+# Scoped to /auth/signup and /auth/login - both pre-auth, so IP is the only
+# available key (no current_user yet). Tighter than the agent-run limiter on
+# purpose: these are classic credential-stuffing/brute-force targets, not
+# just cost-abuse targets.
+auth_ip_rate_limiter = InMemoryRateLimiter(max_requests=10, window_seconds=60.0)

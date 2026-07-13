@@ -26,22 +26,11 @@ import pytest_asyncio
 
 from app.agent.tools.registry import ToolRegistry
 from app.core.config import get_settings
-from app.core.rate_limit import agent_run_ip_rate_limiter, agent_run_user_rate_limiter
 from app.db.dependencies import get_db_session
 from main import app
 
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limiters():
-    """Module-level singletons persist state across tests in the same
-    process - clear both before every test so one test's requests can't
-    trip another test's rate limit.
-    """
-    agent_run_ip_rate_limiter._hits.clear()
-    agent_run_user_rate_limiter._hits.clear()
-    yield
-    agent_run_ip_rate_limiter._hits.clear()
-    agent_run_user_rate_limiter._hits.clear()
+# Rate limiters are reset by conftest.py's autouse _reset_rate_limiters
+# fixture before/after every test in this session, not just this file.
 
 
 def _llm_mock_transport() -> httpx.MockTransport:

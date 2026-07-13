@@ -29,7 +29,10 @@ class AppSettings(BaseSettings):
 
     name: str = "Smart Travel Planner API"
     env: str = "development"
-    debug: bool = True
+    # Secure by default: a deployment that forgets to configure this
+    # explicitly gets stack-trace-free error responses, not the reverse.
+    # Local dev that wants full tracebacks sets APP_DEBUG=true in .env.
+    debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
     frontend_origin: str = Field(

@@ -1,0 +1,7 @@
+# core.autocrlf=true on this repo's Windows checkouts converts LF to CRLF on
+# checkout by default - fine for most text files, but fatal for a script
+# with a #!/bin/sh shebang line: a CRLF line ending makes the interpreter
+# path "/bin/sh\r", which the kernel can't find, and the container's build
+# silently breaks. Force LF regardless of platform/autocrlf settings for
+# anything that runs inside a Linux container.
+*.sh text eol=lf

@@ -6,8 +6,16 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    # Bound to loopback only, not published on all interfaces - a plain
+    # "5432:5432" mapping is reachable from any network interface on the
+    # host, which on a public-facing machine means anyone on the internet
+    # could connect using these well-known default credentials
+    # (POSTGRES_USER/PASSWORD=postgres). 127.0.0.1-only keeps this exact
+    # same workflow working (uv run uvicorn --reload, pytest, psql, a local
+    # DB client all connect to localhost:5432 same as before) while closing
+    # off every other network path to it.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -40,7 +48,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      - "5173:8080"
 
 volumes:
   postgres_data:

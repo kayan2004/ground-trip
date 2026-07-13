@@ -28,7 +28,27 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.rate_limit import (
+    agent_run_ip_rate_limiter,
+    agent_run_user_rate_limiter,
+    auth_ip_rate_limiter,
+)
 from app.db.session import create_db_engine, create_session_factory
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_rate_limiters():
+    """The in-memory rate limiters (app/core/rate_limit.py) are module-level
+    singletons that persist for the whole test session - without this,
+    tests that fire several signup/login/agent-run requests (which most of
+    tests/api/ does) would eventually trip a limit meant for real abuse, not
+    normal test traffic.
+    """
+    for limiter in (agent_run_ip_rate_limiter, agent_run_user_rate_limiter, auth_ip_rate_limiter):
+        limiter._hits.clear()
+    yield
+    for limiter in (agent_run_ip_rate_limiter, agent_run_user_rate_limiter, auth_ip_rate_limiter):
+        limiter._hits.clear()
 
 # Registers every ORM model's mapper before any query touches Recommendation
 # or AgentRun - their relationship() targets are resolved by class name
