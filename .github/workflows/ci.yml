@@ -25,6 +25,10 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ground_trip_test
+      # Must be set explicitly - app/core/config.py rejects the .env.example
+      # placeholder value (and anything under 32 chars) at Settings()
+      # construction time. This is a CI-only value, not a real secret.
+      JWT_SECRET_KEY: ci-test-only-jwt-secret-value-not-for-real-use-1234567890
 
     defaults:
       run:

@@ -1,10 +1,16 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+# The exact placeholder text also committed in .env.example - anyone can read
+# it from this public repo, so it must never actually be usable as a real
+# secret. Kept as a named constant (not inlined twice) so the field default
+# below and the validator that rejects it can never drift out of sync.
+_INSECURE_DEFAULT_JWT_SECRET = "change-this-development-secret-to-32-plus-chars"
 
 # Every nested settings group below is itself a BaseSettings reading the same
 # shared .env file, filtered by its own env_prefix - so e.g. RagSettings only
@@ -49,9 +55,34 @@ class AuthSettings(BaseSettings):
         env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
     )
 
-    jwt_secret_key: str = "change-this-development-secret-to-32-plus-chars"
+    jwt_secret_key: str = _INSECURE_DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def _reject_insecure_jwt_secret(cls, value: str) -> str:
+        # Fails loudly at startup (Settings() construction time) rather
+        # than silently booting with a forgeable-JWT secret - this field
+        # having *any* default at all is dev convenience, not a value
+        # that's ever safe to actually run with. Unconditional (not gated
+        # on APP_DEBUG/APP_ENV) on purpose: gating it on another
+        # insecure-by-default flag would just move the same problem one
+        # level up. Every environment, including CI, must set a real
+        # JWT_SECRET_KEY - see .github/workflows/ci.yml for the test-only
+        # value used there.
+        if value == _INSECURE_DEFAULT_JWT_SECRET:
+            raise ValueError(
+                "JWT_SECRET_KEY is still the placeholder value from .env.example - "
+                "set a real secret via the JWT_SECRET_KEY environment variable "
+                "before starting the app."
+            )
+        if len(value) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be at least 32 characters - "
+                f"got {len(value)}."
+            )
+        return value
 
 
 class RagSettings(BaseSettings):
