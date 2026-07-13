@@ -27,6 +27,13 @@ MODEL_PRICING_USD_PER_MILLION_TOKENS: dict[str, tuple[float, float]] = {
     "gemini-3.1-pro-preview": (2.00, 12.00),
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-3-5-haiku-latest": (1.00, 5.00),  # same pricing tier as claude-haiku-4-5
+    # gpt-5.4-nano / gpt-5.4-mini: cross-checked against OpenAI's own
+    # pricing docs and independent aggregators on 2026-07-13 - unlike the
+    # entries above, NOT confirmed against a real response payload (no
+    # OPENAI_API_KEY configured in this repo). Re-verify once a live
+    # OpenAI call has actually been made.
+    "gpt-5.4-nano": (0.20, 1.25),
+    "gpt-5.4-mini": (0.75, 4.50),
 }
 
 

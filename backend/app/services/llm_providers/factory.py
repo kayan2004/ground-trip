@@ -3,6 +3,7 @@ import httpx
 from app.core.config import Settings
 from app.services.llm_providers.anthropic_provider import AnthropicProvider
 from app.services.llm_providers.gemini_provider import GeminiProvider
+from app.services.llm_providers.openai_provider import OpenAIProvider
 from app.services.llm_providers.protocol import LLMProvider
 
 
@@ -11,6 +12,8 @@ def get_llm_provider(settings: Settings, *, http_client: httpx.AsyncClient) -> L
         return GeminiProvider(settings)
     if settings.llm_provider == "anthropic":
         return AnthropicProvider(settings, http_client=http_client)
+    if settings.llm_provider == "openai":
+        return OpenAIProvider(settings, http_client=http_client)
     raise RuntimeError(
-        f"Unknown llm_provider '{settings.llm_provider}' - expected 'anthropic' or 'gemini'."
+        f"Unknown llm_provider '{settings.llm_provider}' - expected 'anthropic', 'gemini', or 'openai'."
     )

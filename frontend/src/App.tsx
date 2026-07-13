@@ -7,12 +7,13 @@ import {
   ApiError,
   createAgentRun,
   fetchCurrentUser,
+  fetchLlmOptions,
   login,
   signup,
   submitFeedback,
 } from './lib/api'
 import { JsonPayload } from './JsonPayload'
-import type { AgentRunRead, AuthMode, FeedbackVerdict, SessionState } from './types'
+import type { AgentRunRead, AuthMode, FeedbackVerdict, LlmOption, SessionState } from './types'
 import { WhyThisPick } from './WhyThisPick'
 
 type View = 'login' | 'signup' | 'app'
@@ -21,6 +22,35 @@ const APP_ROUTE = '/app'
 const LOGIN_ROUTE = '/login'
 const SIGNUP_ROUTE = '/signup'
 const FEEDBACK_SESSION_STORAGE_KEY = 'smart-travel-feedback-session-uuid'
+// Deliberately sessionStorage, not localStorage - a BYOK key should not
+// outlive the browser tab. This is a separate storage key from
+// 'smart-travel-session' (the auth JWT, which does use localStorage) - not
+// a refactor of that pattern, a different key with different lifetime
+// requirements.
+const BYOK_SESSION_STORAGE_KEY = 'smart-travel-byok'
+
+type ByokSelection = {
+  provider: string
+  model: string
+  apiKey: string
+}
+
+function loadByokSelection(): ByokSelection {
+  const raw = window.sessionStorage.getItem(BYOK_SESSION_STORAGE_KEY)
+  if (!raw) {
+    return { provider: '', model: '', apiKey: '' }
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<ByokSelection>
+    return {
+      provider: parsed.provider ?? '',
+      model: parsed.model ?? '',
+      apiKey: parsed.apiKey ?? '',
+    }
+  } catch {
+    return { provider: '', model: '', apiKey: '' }
+  }
+}
 
 function getOrCreateFeedbackSessionUuid(): string {
   const existing = window.localStorage.getItem(FEEDBACK_SESSION_STORAGE_KEY)
@@ -99,6 +129,8 @@ function App() {
     Record<number, FeedbackVerdict>
   >({})
   const [feedbackError, setFeedbackError] = useState('')
+  const [llmOptions, setLlmOptions] = useState<LlmOption[]>([])
+  const [byokSelection, setByokSelection] = useState<ByokSelection>(loadByokSelection)
 
   const authMode: AuthMode = view === 'signup' ? 'signup' : 'login'
 
@@ -110,6 +142,20 @@ function App() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    fetchLlmOptions()
+      .then(setLlmOptions)
+      .catch(() => setLlmOptions([]))
+  }, [])
+
+  useEffect(() => {
+    if (byokSelection.provider || byokSelection.model || byokSelection.apiKey) {
+      window.sessionStorage.setItem(BYOK_SESSION_STORAGE_KEY, JSON.stringify(byokSelection))
+    } else {
+      window.sessionStorage.removeItem(BYOK_SESSION_STORAGE_KEY)
+    }
+  }, [byokSelection])
 
   useEffect(() => {
     const raw = window.localStorage.getItem('smart-travel-session')
@@ -203,10 +249,20 @@ function App() {
     setPlannerError('')
 
     try {
-      const agentRun = await createAgentRun(session.token, {
-        prompt,
-        retrieval_top_k: retrievalTopK,
-      })
+      const useByok = Boolean(
+        byokSelection.apiKey && byokSelection.provider && byokSelection.model,
+      )
+      const agentRun = await createAgentRun(
+        session.token,
+        {
+          prompt,
+          retrieval_top_k: retrievalTopK,
+          ...(useByok
+            ? { llm_provider: byokSelection.provider, llm_model: byokSelection.model }
+            : {}),
+        },
+        useByok ? byokSelection.apiKey : undefined,
+      )
       setResult(agentRun)
     } catch (error) {
       setPlannerError(
@@ -240,6 +296,19 @@ function App() {
   function handleLogout() {
     persistSession(null)
     setResult(null)
+  }
+
+  function handleByokOptionChange(value: string) {
+    const [provider, model] = value.split('::')
+    setByokSelection((previous) => ({ ...previous, provider: provider ?? '', model: model ?? '' }))
+  }
+
+  function handleByokKeyChange(apiKey: string) {
+    setByokSelection((previous) => ({ ...previous, apiKey }))
+  }
+
+  function handleRemoveByokKey() {
+    setByokSelection({ provider: '', model: '', apiKey: '' })
   }
 
   if (view !== 'app' || !session) {
@@ -386,6 +455,54 @@ function App() {
                 onChange={(event) => setRetrievalTopK(Number(event.target.value))}
               />
             </label>
+
+            <details className="gt-panel gt-panel--raised byok-panel">
+              <summary>Use your own API key</summary>
+              <p className="byok-copy">
+                Your key stays in this browser tab only (sessionStorage) and is sent only with
+                your own requests - it is never stored server-side or logged. Leave this empty to
+                use the app's default model.
+              </p>
+              <label className="gt-field">
+                <span>Provider / model</span>
+                <select
+                  className="gt-input"
+                  value={
+                    byokSelection.provider && byokSelection.model
+                      ? `${byokSelection.provider}::${byokSelection.model}`
+                      : ''
+                  }
+                  onChange={(event) => handleByokOptionChange(event.target.value)}
+                >
+                  <option value="">Select a provider and model…</option>
+                  {llmOptions.map((option) => (
+                    <option
+                      key={`${option.provider}::${option.model}`}
+                      value={`${option.provider}::${option.model}`}
+                    >
+                      {option.provider} / {option.model}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="gt-field">
+                <span>API key</span>
+                <input
+                  className="gt-input"
+                  type="password"
+                  value={byokSelection.apiKey}
+                  onChange={(event) => handleByokKeyChange(event.target.value)}
+                  placeholder="sk-…"
+                  autoComplete="off"
+                />
+              </label>
+              {byokSelection.apiKey || byokSelection.provider || byokSelection.model ? (
+                <button type="button" className="gt-btn gt-btn--ghost" onClick={handleRemoveByokKey}>
+                  Remove key
+                </button>
+              ) : null}
+            </details>
+
             {plannerError ? (
               <p className="error-text" role="alert">
                 {plannerError}

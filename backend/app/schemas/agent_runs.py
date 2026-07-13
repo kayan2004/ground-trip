@@ -14,6 +14,13 @@ class AgentRunCreate(BaseModel):
     location_query: str | None = Field(default=None, min_length=2, max_length=120)
     location_country_code: str | None = Field(default=None, min_length=2, max_length=2)
     retrieval_top_k: int = Field(default=3, ge=1, le=8)
+    # BYOK provider/model selection - only meaningful together with the
+    # X-LLM-API-Key header (see app/api/routes/agent_runs.py). Both must be
+    # in app/core/llm_allowlist.py's BYOK_ALLOWLIST or the request is
+    # rejected with a 400. No max_tokens field here, ever - that stays
+    # server-controlled (app/core/config.py), never client-settable.
+    llm_provider: str | None = Field(default=None, max_length=32)
+    llm_model: str | None = Field(default=None, max_length=64)
 
 
 class AgentRunRead(BaseModel):

@@ -6,6 +6,7 @@ from app.api.routes.agent_runs import router as agent_runs_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.health import router as health_router
+from app.api.routes.llm_options import router as llm_options_router
 from app.core.config import get_settings
 from app.core.lifespan import lifespan
 from app.core.logging_config import configure_logging
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     application.include_router(auth_router)
     application.include_router(feedback_router)
     application.include_router(health_router)
+    application.include_router(llm_options_router)
     return application
 
 app = create_app()

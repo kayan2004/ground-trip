@@ -16,6 +16,13 @@ export interface TokenResponse {
 export interface PlannerRequest {
   prompt: string
   retrieval_top_k: number
+  llm_provider?: string
+  llm_model?: string
+}
+
+export interface LlmOption {
+  provider: string
+  model: string
 }
 
 export interface ToolLogRead {

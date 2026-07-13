@@ -2,6 +2,7 @@ import type {
   AgentRunRead,
   FeedbackRead,
   FeedbackVerdict,
+  LlmOption,
   PlannerRequest,
   TokenResponse,
   UserRead,
@@ -15,6 +16,7 @@ type RequestOptions = {
   method?: 'GET' | 'POST'
   token?: string
   body?: unknown
+  headers?: Record<string, string>
 }
 
 class ApiError extends Error {
@@ -33,6 +35,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers: {
       'Content-Type': 'application/json',
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options.headers ?? {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   })
@@ -79,12 +82,18 @@ export async function fetchCurrentUser(token: string): Promise<UserRead> {
 export async function createAgentRun(
   token: string,
   payload: PlannerRequest,
+  apiKey?: string,
 ): Promise<AgentRunRead> {
   return request<AgentRunRead>('/agent-runs', {
     method: 'POST',
     token,
     body: payload,
+    headers: apiKey ? { 'X-LLM-API-Key': apiKey } : undefined,
   })
+}
+
+export async function fetchLlmOptions(): Promise<LlmOption[]> {
+  return request<LlmOption[]>('/llm-options')
 }
 
 export async function submitFeedback(payload: {

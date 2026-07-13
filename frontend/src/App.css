@@ -350,6 +350,22 @@
   font: var(--text-body-sm);
 }
 
+.byok-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.byok-panel .gt-field {
+  margin-top: var(--space-2);
+}
+
+.byok-copy {
+  margin: var(--space-2) 0 0;
+  color: var(--text-tertiary);
+  font: var(--text-body-sm);
+}
+
 .shell {
   display: grid;
   gap: var(--space-6);

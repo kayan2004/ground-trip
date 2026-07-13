@@ -2,18 +2,23 @@ import time
 from functools import lru_cache
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.core.config import Settings
+from app.services.llm_providers.errors import LLMAuthenticationError
 from app.services.llm_providers.protocol import Message, split_system_and_user
 from app.services.llm_providers.usage_logging import log_completion_usage
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=32)
 def _get_client(api_key: str) -> genai.Client:
     # Memoized so the SDK's own transport (it does not accept the app's
-    # shared httpx.AsyncClient) is constructed once per process, not once
-    # per LLM call.
+    # shared httpx.AsyncClient) is constructed once per distinct api_key,
+    # not once per LLM call. maxsize=32 (not 1) because BYOK means several
+    # concurrent distinct Gemini keys can be in flight in the same process -
+    # a maxsize of 1 would evict and rebuild the SDK client on every single
+    # call once two or more users interleave BYOK Gemini requests.
     return genai.Client(api_key=api_key)
 
 
@@ -42,15 +47,35 @@ class GeminiProvider:
         system, user_content = split_system_and_user(messages)
 
         started_at = time.monotonic()
-        response = await self._client.aio.models.generate_content(
-            model=model,
-            contents=user_content,
-            config=types.GenerateContentConfig(
-                system_instruction=system or None,
-                max_output_tokens=max_tokens,
-                temperature=temperature,
-            ),
-        )
+        try:
+            response = await self._client.aio.models.generate_content(
+                model=model,
+                contents=user_content,
+                config=types.GenerateContentConfig(
+                    system_instruction=system or None,
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                ),
+            )
+        except genai_errors.ClientError as exc:
+            # Confirmed live (2026-07-13, browser BYOK test with a
+            # deliberately fake key): Gemini rejects an invalid API key
+            # with 400 INVALID_ARGUMENT/API_KEY_INVALID, not 401/403 - this
+            # was previously a documented open question, now settled by a
+            # real response payload, not a guess. 400 is included
+            # deliberately despite also covering genuine bad-request
+            # errors: this call site only ever sends plain system/user
+            # text (no structured input that could independently 400), so
+            # the risk of misclassifying an unrelated bad-request as "key
+            # rejected" is low, and it's outweighed by BYOK requests
+            # needing a clean 401 instead of silently degrading.
+            if exc.code in (400, 401, 403):
+                raise LLMAuthenticationError(
+                    status_code=exc.code,
+                    context=f"Gemini generation using model '{model}'",
+                    body=str(exc),
+                ) from exc
+            raise
         elapsed_seconds = time.monotonic() - started_at
 
         usage = response.usage_metadata

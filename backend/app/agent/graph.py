@@ -1,8 +1,10 @@
 import json
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, NotRequired, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
 
 from app.agent.tools.base import ToolContext
 from app.agent.tools.registry import ToolRegistry
@@ -11,6 +13,23 @@ from app.schemas.live_conditions import LiveConditionsRequest
 from app.schemas.rag_retrieval import RagRetrievalRequest
 from app.schemas.recommendations import DestinationRecommendationRequest
 from app.services.llm import extract_request_fields, synthesize_trip_response
+from app.services.llm_providers import LLMAuthenticationError
+
+
+@dataclass
+class TripPlannerRuntime:
+    """Non-serializable, per-invocation dependencies - deliberately kept
+    out of TripPlannerState. tool_context carries a Settings object that,
+    for a BYOK request, has a user-supplied API key on it (see
+    app/core/byok.py); that key must never enter checkpointable graph
+    state (the graph is compiled with no checkpointer today, but this
+    keeps it that way structurally rather than by omission - the moment a
+    checkpointer is ever added, tool_context already lives outside what it
+    would serialize).
+    """
+
+    tool_registry: ToolRegistry | None
+    tool_context: ToolContext | None
 
 
 class TripPlannerState(TypedDict):
@@ -25,8 +44,6 @@ class TripPlannerState(TypedDict):
     recommended_destinations: NotRequired[list[dict[str, Any]]]
     final_response: NotRequired[str | None]
     tool_logs: list[dict[str, str]]
-    tool_registry: NotRequired[ToolRegistry | None]
-    tool_context: NotRequired[ToolContext | None]
 
 
 def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
@@ -42,10 +59,12 @@ def initialize_trip_state(state: TripPlannerState) -> TripPlannerState:
     }
 
 
-async def extract_request_fields_node(state: TripPlannerState) -> TripPlannerState:
+async def extract_request_fields_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_context = state.get("tool_context")
+    tool_context = runtime.context.tool_context
 
     if (
         state.get("travel_profile") is not None
@@ -79,6 +98,31 @@ async def extract_request_fields_node(state: TripPlannerState) -> TripPlannerSta
             tool_context.settings,
             prompt=state["prompt"],
         )
+    except LLMAuthenticationError:
+        if tool_context.is_byok:
+            # A BYOK key being rejected must surface as a clear error to
+            # the caller, not degrade into a "partial" success - re-raise
+            # so it propagates up to the route, which converts it to a 4xx.
+            raise
+        # The server's own default key failing is an ops problem, not a
+        # user-facing error - keep degrading gracefully like any other
+        # tool failure.
+        tool_logs.append(
+            {
+                "tool_name": "request_field_extractor",
+                "input_payload": state["prompt"],
+                "output_payload": "Extraction failed: the configured LLM API key was rejected.",
+                "status": "failed",
+            }
+        )
+        response_sections.append(
+            "Request field extraction failed, so the agent continued with only the explicit request fields."
+        )
+        return {
+            "status": "partial" if state["status"] == "completed" else state["status"],
+            "response_sections": response_sections,
+            "tool_logs": tool_logs,
+        }
     except Exception as exc:
         tool_logs.append(
             {
@@ -141,11 +185,13 @@ async def extract_request_fields_node(state: TripPlannerState) -> TripPlannerSta
     }
 
 
-async def retrieve_context_node(state: TripPlannerState) -> TripPlannerState:
+async def retrieve_context_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     retrieval_input = {
         "query": state["prompt"],
@@ -225,11 +271,13 @@ async def retrieve_context_node(state: TripPlannerState) -> TripPlannerState:
     }
 
 
-async def recommend_destinations_node(state: TripPlannerState) -> TripPlannerState:
+async def recommend_destinations_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     travel_profile = state.get("travel_profile")
 
@@ -331,11 +379,13 @@ async def recommend_destinations_node(state: TripPlannerState) -> TripPlannerSta
     return updates
 
 
-async def live_conditions_node(state: TripPlannerState) -> TripPlannerState:
+async def live_conditions_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     tool_logs = list(state["tool_logs"])
     response_sections = list(state["response_sections"])
-    tool_registry = state.get("tool_registry")
-    tool_context = state.get("tool_context")
+    tool_registry = runtime.context.tool_registry
+    tool_context = runtime.context.tool_context
     status = state["status"]
     recommended_destinations = state.get("recommended_destinations") or []
     weather_location_query = state.get("location_query") or state.get("destination_name")
@@ -437,11 +487,13 @@ async def live_conditions_node(state: TripPlannerState) -> TripPlannerState:
         }
 
 
-async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
+async def synthesize_response_node(
+    state: TripPlannerState, runtime: Runtime[TripPlannerRuntime]
+) -> TripPlannerState:
     response_sections = list(state["response_sections"])
     destination_name = state.get("destination_name")
     recommended_destinations = state.get("recommended_destinations") or []
-    tool_context = state.get("tool_context")
+    tool_context = runtime.context.tool_context
 
     if destination_name is not None:
         response_sections.append(
@@ -475,6 +527,17 @@ async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
             "response_sections": response_sections,
             "final_response": final_response,
         }
+    except LLMAuthenticationError:
+        if tool_context.is_byok:
+            raise
+        response_sections.append(
+            "LLM synthesis fallback used because the configured LLM API key was rejected."
+        )
+        return {
+            "status": "partial" if state["status"] == "completed" else state["status"],
+            "response_sections": response_sections,
+            "final_response": "\n".join(response_sections),
+        }
     except Exception as exc:
         response_sections.append(
             f"LLM synthesis fallback used because Claude generation failed: {type(exc).__name__}."
@@ -488,7 +551,7 @@ async def synthesize_response_node(state: TripPlannerState) -> TripPlannerState:
 
 @lru_cache(maxsize=1)
 def build_trip_planner_graph():
-    graph = StateGraph(TripPlannerState)
+    graph = StateGraph(TripPlannerState, context_schema=TripPlannerRuntime)
     graph.add_node("initialize", initialize_trip_state)
     graph.add_node("extract_request_fields", extract_request_fields_node)
     graph.add_node("recommend_destinations", recommend_destinations_node)

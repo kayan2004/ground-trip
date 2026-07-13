@@ -16,10 +16,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.core.config import AnthropicSettings, GeminiSettings, Settings
+from app.core.config import AnthropicSettings, GeminiSettings, OpenAISettings, Settings
 from app.services.llm_providers.anthropic_provider import AnthropicProvider
+from app.services.llm_providers.errors import LLMAuthenticationError
 from app.services.llm_providers.factory import get_llm_provider
 from app.services.llm_providers.gemini_provider import GeminiProvider
+from app.services.llm_providers.openai_provider import OpenAIProvider
 
 
 def _anthropic_mock_transport(response_text: str = "mocked response") -> httpx.MockTransport:
@@ -52,7 +54,7 @@ async def test_anthropic_provider_builds_correct_request_and_parses_response():
         )
 
     assert result == "hello from anthropic"
-    request = transport.captured_requests[0]  # type: ignore[attr-defined]
+    request = transport.captured_requests[0]
     assert request.url.path == "/v1/messages"
     assert request.headers["x-api-key"] == "test-key"
     body = json.loads(request.content)
@@ -72,7 +74,7 @@ async def test_anthropic_provider_uses_the_single_configured_model():
         provider = AnthropicProvider(settings, http_client=client)
         await provider.complete([{"role": "user", "content": "hi"}])
 
-    request = transport.captured_requests[0]  # type: ignore[attr-defined]
+    request = transport.captured_requests[0]
     body = json.loads(request.content)
     assert body["model"] == "claude-custom-test-model"
 
@@ -181,3 +183,204 @@ async def test_get_llm_provider_rejects_unknown_provider():
     async with httpx.AsyncClient() as client:
         with pytest.raises(RuntimeError):
             get_llm_provider(settings, http_client=client)
+
+
+def _openai_mock_transport(response_text: str = "mocked response") -> httpx.MockTransport:
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"role": "assistant", "content": response_text}}],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 22},
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    transport.captured_requests = captured_requests  # type: ignore[attr-defined]
+    return transport
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_openai_provider_builds_correct_request_and_parses_response():
+    settings = Settings(llm_provider="openai", openai=OpenAISettings(api_key="test-key"))
+    transport = _openai_mock_transport("hello from openai")
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = OpenAIProvider(settings, http_client=client)
+        result = await provider.complete(
+            [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Say hi."},
+            ],
+        )
+
+    assert result == "hello from openai"
+    request = transport.captured_requests[0]
+    assert request.url.path == "/v1/chat/completions"
+    assert request.headers["authorization"] == "Bearer test-key"
+    body = json.loads(request.content)
+    assert body["model"] == settings.openai.model
+    assert body["messages"] == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Say hi."},
+    ]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_openai_provider_uses_the_single_configured_model():
+    settings = Settings(
+        openai=OpenAISettings(api_key="test-key", model="gpt-custom-test-model")
+    )
+    transport = _openai_mock_transport()
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = OpenAIProvider(settings, http_client=client)
+        await provider.complete([{"role": "user", "content": "hi"}])
+
+    request = transport.captured_requests[0]
+    body = json.loads(request.content)
+    assert body["model"] == "gpt-custom-test-model"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_openai_provider_logs_token_usage(caplog):
+    settings = Settings(openai=OpenAISettings(api_key="test-key", model="gpt-5.4-nano"))
+    transport = _openai_mock_transport()
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = OpenAIProvider(settings, http_client=client)
+        with caplog.at_level("INFO", logger="app.llm_usage"):
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    records = [r for r in caplog.records if r.name == "app.llm_usage"]
+    assert len(records) == 1
+    assert records[0].input_tokens == 11
+    assert records[0].output_tokens == 22
+    # gpt-5.4-nano is priced at (0.20, 1.25) USD/MTok.
+    assert records[0].estimated_cost_usd == pytest.approx((11 * 0.20 + 22 * 1.25) / 1_000_000)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_get_llm_provider_selects_openai():
+    settings = Settings(llm_provider="openai", openai=OpenAISettings(api_key="test-key"))
+    async with httpx.AsyncClient() as client:
+        assert isinstance(get_llm_provider(settings, http_client=client), OpenAIProvider)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_anthropic_provider_401_raises_llm_authentication_error():
+    settings = Settings(anthropic=AnthropicSettings(api_key="bad-key"))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": {"message": "invalid x-api-key"}})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = AnthropicProvider(settings, http_client=client)
+        with pytest.raises(LLMAuthenticationError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_anthropic_provider_500_raises_plain_runtime_error_not_auth_error():
+    settings = Settings(anthropic=AnthropicSettings(api_key="test-key"))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": {"message": "internal error"}})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = AnthropicProvider(settings, http_client=client)
+        with pytest.raises(RuntimeError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert not isinstance(exc_info.value, LLMAuthenticationError)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_gemini_provider_401_raises_llm_authentication_error():
+    from google.genai import errors as genai_errors
+
+    settings = Settings(llm_provider="gemini", gemini=GeminiSettings(api_key="test-key"))
+    provider = GeminiProvider(settings)
+
+    client_error = genai_errors.ClientError(401, {"error": {"message": "API key not valid"}})
+    with patch.object(
+        provider._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as mock_generate:
+        mock_generate.side_effect = client_error
+        with pytest.raises(LLMAuthenticationError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_gemini_provider_400_invalid_key_raises_llm_authentication_error():
+    """Confirmed live 2026-07-13 via a real browser BYOK test with a
+    deliberately fake key: Gemini rejects an invalid API key with
+    400 INVALID_ARGUMENT/API_KEY_INVALID, not 401/403 - this is a real
+    response shape, not a guess.
+    """
+    from google.genai import errors as genai_errors
+
+    settings = Settings(llm_provider="gemini", gemini=GeminiSettings(api_key="test-key"))
+    provider = GeminiProvider(settings)
+
+    client_error = genai_errors.ClientError(
+        400,
+        {
+            "error": {
+                "code": 400,
+                "message": "API key not valid. Please pass a valid API key.",
+                "status": "INVALID_ARGUMENT",
+            }
+        },
+    )
+    with patch.object(
+        provider._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as mock_generate:
+        mock_generate.side_effect = client_error
+        with pytest.raises(LLMAuthenticationError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_gemini_provider_500_client_error_not_reclassified_as_auth_error():
+    from google.genai import errors as genai_errors
+
+    settings = Settings(llm_provider="gemini", gemini=GeminiSettings(api_key="test-key"))
+    provider = GeminiProvider(settings)
+
+    client_error = genai_errors.ClientError(500, {"error": {"message": "internal"}})
+    with patch.object(
+        provider._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as mock_generate:
+        mock_generate.side_effect = client_error
+        with pytest.raises(genai_errors.ClientError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert not isinstance(exc_info.value, LLMAuthenticationError)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_openai_provider_401_raises_llm_authentication_error():
+    settings = Settings(openai=OpenAISettings(api_key="bad-key"))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": {"message": "Incorrect API key provided"}})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = OpenAIProvider(settings, http_client=client)
+        with pytest.raises(LLMAuthenticationError) as exc_info:
+            await provider.complete([{"role": "user", "content": "hi"}])
+
+    assert exc_info.value.status_code == 401

@@ -136,6 +136,26 @@ class GeminiSettings(BaseSettings):
     temperature: float = 0.2
 
 
+class OpenAISettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="OPENAI_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
+
+    api_key: str = ""
+    api_base_url: str = "https://api.openai.com/v1"
+    # gpt-5.4-nano: cheapest OpenAI chat-completions tier ($0.20/$1.25 per
+    # MTok in/out), cross-checked against OpenAI's own pricing docs and
+    # independent aggregators 2026-07-13 - NOT live-call-verified, since
+    # this repo has no OPENAI_API_KEY configured (unlike gemini_model,
+    # which was confirmed via a real client.models.list() call). Verify
+    # live before treating this as trustworthy the way the Gemini default
+    # is - see llm_providers/openai_provider.py's max_completion_tokens
+    # note for the other unverified detail.
+    model: str = "gpt-5.4-nano"
+    max_tokens: int = 700
+    temperature: float = 0.2
+
+
 class DiscordSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DISCORD_", env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
@@ -207,11 +227,16 @@ class Settings(BaseSettings):
     rag: RagSettings = Field(default_factory=RagSettings)
     voyage: VoyageSettings = Field(default_factory=VoyageSettings)
 
-    # "anthropic" | "gemini" - selects the provider for all three LLM call
-    # sites (extraction, synthesis, cluster naming). See app/services/llm_providers/.
+    # "anthropic" | "gemini" | "openai" - selects the provider for all three
+    # LLM call sites (extraction, synthesis, cluster naming) when no
+    # per-request BYOK override is present. See app/services/llm_providers/
+    # and app/core/byok.py (BYOK requests get a request-scoped copy of this
+    # Settings object with the override applied, never a mutation of the
+    # shared singleton).
     llm_provider: str = "gemini"
     anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
+    openai: OpenAISettings = Field(default_factory=OpenAISettings)
 
     # On by default: recommend_destinations() re-ranks the cosine-retrieved
     # slate with the LightGBM ranker whenever artifacts/ranker/model.joblib

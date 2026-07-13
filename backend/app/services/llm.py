@@ -23,6 +23,8 @@ def model_name(settings: Settings) -> str:
     Gemma 4 model for Gemini, at least for now)."""
     if settings.llm_provider == "gemini":
         return settings.gemini.model
+    if settings.llm_provider == "openai":
+        return settings.openai.model
     return settings.anthropic.model
 
 
