@@ -118,6 +118,20 @@ async def agent_runs_env(engine):
     del app.state.settings
     del app.state.resources
 
+    # This fixture builds its own session factory rather than depending on
+    # the db_session fixture, so it never gets that fixture's truncate-
+    # after-each-test cleanup - without this, every user/agent_run/etc a
+    # test using this fixture creates persists in the real test Postgres
+    # forever, across every future test run, not just within one session.
+    # Confirmed live: an earlier debug run left rows that a later run's
+    # list-ordering assertion then had to account for.
+    from sqlalchemy import text
+
+    from tests.conftest import TRUNCATE_TABLES
+
+    async with engine.begin() as conn:
+        await conn.execute(text(f"TRUNCATE TABLE {TRUNCATE_TABLES} RESTART IDENTITY CASCADE"))
+
 
 async def _signup_and_login(client: httpx.AsyncClient, email: str) -> str:
     await client.post("/auth/signup", json={"email": email, "password": "password123"})
@@ -319,3 +333,108 @@ async def test_byok_key_never_appears_in_logs(agent_runs_env, caplog):
     for record in caplog.records:
         assert secret_marker not in record.getMessage()
     assert secret_marker not in response.text
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_agent_runs_returns_own_history_most_recent_first(agent_runs_env):
+    client, _transport = agent_runs_env
+    token = await _signup_and_login(client, "history-user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    first = await client.post(
+        "/agent-runs", json={"prompt": "First trip: a weekend in the mountains."}, headers=headers
+    )
+    second = await client.post(
+        "/agent-runs", json={"prompt": "Second trip: a week by the beach."}, headers=headers
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    list_response = await client.get("/agent-runs", headers=headers)
+    assert list_response.status_code == 200
+    body = list_response.json()
+    assert [item["id"] for item in body] == [second.json()["id"], first.json()["id"]]
+    # Summary shape only - no tool_logs/recommendations bloating the list.
+    assert "tool_logs" not in body[0]
+    assert "recommendations" not in body[0]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_agent_runs_never_returns_another_users_runs(agent_runs_env):
+    client, _transport = agent_runs_env
+    owner_token = await _signup_and_login(client, "history-owner@test.com")
+    await client.post(
+        "/agent-runs",
+        json={"prompt": "Owner's trip."},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+
+    other_token = await _signup_and_login(client, "history-stranger@test.com")
+    list_response = await client.get(
+        "/agent-runs", headers={"Authorization": f"Bearer {other_token}"}
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_get_agent_run_returns_full_detail_for_own_run(agent_runs_env):
+    client, _transport = agent_runs_env
+    token = await _signup_and_login(client, "history-detail@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = await client.post(
+        "/agent-runs", json={"prompt": "A detailed trip request."}, headers=headers
+    )
+    agent_run_id = created.json()["id"]
+
+    detail_response = await client.get(f"/agent-runs/{agent_run_id}", headers=headers)
+
+    assert detail_response.status_code == 200
+    body = detail_response.json()
+    assert body["id"] == agent_run_id
+    assert body["prompt"] == "A detailed trip request."
+    assert "tool_logs" in body
+    assert "recommendations" in body
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_get_agent_run_404s_for_another_users_run_not_403(agent_runs_env):
+    """404, not 403 - a user shouldn't be able to tell "exists but not
+    yours" apart from "doesn't exist" by probing ids.
+    """
+    client, _transport = agent_runs_env
+    owner_token = await _signup_and_login(client, "history-detail-owner@test.com")
+    created = await client.post(
+        "/agent-runs",
+        json={"prompt": "Owner's private trip."},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    agent_run_id = created.json()["id"]
+
+    other_token = await _signup_and_login(client, "history-detail-stranger@test.com")
+    detail_response = await client.get(
+        f"/agent-runs/{agent_run_id}", headers={"Authorization": f"Bearer {other_token}"}
+    )
+
+    assert detail_response.status_code == 404
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_get_agent_run_404s_for_a_nonexistent_id(agent_runs_env):
+    client, _transport = agent_runs_env
+    token = await _signup_and_login(client, "history-detail-missing@test.com")
+
+    detail_response = await client.get(
+        "/agent-runs/999999", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert detail_response.status_code == 404
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_agent_runs_requires_auth(agent_runs_env):
+    client, _transport = agent_runs_env
+    response = await client.get("/agent-runs")
+    assert response.status_code == 401

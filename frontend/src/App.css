@@ -489,6 +489,31 @@
   margin-top: var(--space-2);
 }
 
+.history-row {
+  /* Reset <button> defaults so it can reuse .gt-panel/.log-card styling
+     while staying a real, keyboard-navigable button rather than a div with
+     an onClick handler. */
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.history-row:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.history-prompt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .feedback-actions {
   display: flex;
   flex-wrap: wrap;

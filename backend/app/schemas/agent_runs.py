@@ -34,3 +34,18 @@ class AgentRunRead(BaseModel):
     recommendations: list[RecommendationRead] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AgentRunSummary(BaseModel):
+    """Lightweight shape for GET /agent-runs (history list) - omits
+    tool_logs/recommendations, which GET /agent-runs/{id} (detail) still
+    returns in full via AgentRunRead. Keeps the list endpoint cheap
+    regardless of how many past runs a user has.
+    """
+
+    id: int
+    prompt: str
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

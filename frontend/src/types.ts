@@ -75,6 +75,13 @@ export interface AgentRunRead {
   recommendations: RecommendationRead[]
 }
 
+export interface AgentRunSummary {
+  id: number
+  prompt: string
+  status: string
+  created_at: string
+}
+
 export interface SessionState {
   // No token field - auth is an httpOnly cookie the frontend never reads
   // or stores (see lib/api.ts). This just tracks who's logged in for UI

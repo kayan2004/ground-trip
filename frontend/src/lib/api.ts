@@ -1,5 +1,6 @@
 import type {
   AgentRunRead,
+  AgentRunSummary,
   FeedbackRead,
   FeedbackVerdict,
   LlmOption,
@@ -143,6 +144,14 @@ export async function createAgentRun(
 
 export async function fetchLlmOptions(): Promise<LlmOption[]> {
   return request<LlmOption[]>('/llm-options')
+}
+
+export async function listAgentRuns(): Promise<AgentRunSummary[]> {
+  return request<AgentRunSummary[]>('/agent-runs')
+}
+
+export async function fetchAgentRun(agentRunId: number): Promise<AgentRunRead> {
+  return request<AgentRunRead>(`/agent-runs/${agentRunId}`)
 }
 
 export async function submitFeedback(payload: {

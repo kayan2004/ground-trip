@@ -1,6 +1,8 @@
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.agent.planner import run_trip_planner
 from app.agent.tools.base import ToolContext
@@ -109,3 +111,47 @@ async def create_agent_run(
 
     await session.refresh(agent_run, attribute_names=["tool_logs", "recommendations"])
     return agent_run
+
+
+async def list_agent_runs_for_user(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[AgentRun]:
+    statement = (
+        select(AgentRun)
+        .where(AgentRun.user_id == user_id, AgentRun.deleted_at.is_(None))
+        # id as a tiebreaker - two rows can share created_at at whatever
+        # timestamp precision the DB stores, and id order matches "most
+        # recent first" anyway since it's autoincrement.
+        .order_by(AgentRun.created_at.desc(), AgentRun.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(statement)
+    return list(result.scalars().all())
+
+
+async def get_agent_run_for_user(
+    session: AsyncSession,
+    user_id: int,
+    agent_run_id: int,
+) -> AgentRun | None:
+    """Scoped to user_id so one user can never fetch another's trip plan by
+    guessing an id - returns None (route turns this into a 404, not a 403)
+    rather than distinguishing "doesn't exist" from "not yours", which
+    would leak which ids are in use.
+    """
+    statement = (
+        select(AgentRun)
+        .where(
+            AgentRun.id == agent_run_id,
+            AgentRun.user_id == user_id,
+            AgentRun.deleted_at.is_(None),
+        )
+        .options(selectinload(AgentRun.tool_logs))
+    )
+    result = await session.execute(statement)
+    return result.scalar_one_or_none()

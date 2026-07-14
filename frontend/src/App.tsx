@@ -6,15 +6,24 @@ import groundtripLogo from './assets/groundtrip-logo.svg'
 import {
   ApiError,
   createAgentRun,
+  fetchAgentRun,
   fetchCurrentUser,
   fetchLlmOptions,
+  listAgentRuns,
   login,
   logout,
   signup,
   submitFeedback,
 } from './lib/api'
 import { JsonPayload } from './JsonPayload'
-import type { AgentRunRead, AuthMode, FeedbackVerdict, LlmOption, SessionState } from './types'
+import type {
+  AgentRunRead,
+  AgentRunSummary,
+  AuthMode,
+  FeedbackVerdict,
+  LlmOption,
+  SessionState,
+} from './types'
 import { WhyThisPick } from './WhyThisPick'
 
 type View = 'login' | 'signup' | 'app'
@@ -135,6 +144,9 @@ function App() {
   const [feedbackError, setFeedbackError] = useState('')
   const [llmOptions, setLlmOptions] = useState<LlmOption[]>([])
   const [byokSelection, setByokSelection] = useState<ByokSelection>(loadByokSelection)
+  const [history, setHistory] = useState<AgentRunSummary[]>([])
+  const [historyError, setHistoryError] = useState('')
+  const [historyLoadingId, setHistoryLoadingId] = useState<number | null>(null)
 
   const authMode: AuthMode = view === 'signup' ? 'signup' : 'login'
 
@@ -199,6 +211,66 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  async function refreshHistory() {
+    try {
+      const items = await listAgentRuns()
+      setHistory(items)
+      setHistoryError('')
+    } catch (error) {
+      setHistoryError(error instanceof ApiError ? error.message : 'Could not load trip history.')
+    }
+  }
+
+  useEffect(() => {
+    if (!session) return
+
+    // The react-hooks/set-state-in-effect lint rule traces into any named
+    // function an effect calls and flags it if that function (even
+    // transitively, even after an await) ever calls a state setter - so
+    // reaching for the reusable refreshHistory() here trips it, same as a
+    // bare setState would. The rule's own recommended shape is an async
+    // function defined and invoked entirely inside the effect body, with a
+    // cancellation flag - see https://react.dev/learn/you-might-not-need-an-effect.
+    let cancelled = false
+
+    async function loadHistoryOnMount() {
+      try {
+        const items = await listAgentRuns()
+        if (cancelled) return
+        setHistory(items)
+        setHistoryError('')
+      } catch (error) {
+        if (cancelled) return
+        setHistoryError(error instanceof ApiError ? error.message : 'Could not load trip history.')
+      }
+    }
+
+    loadHistoryOnMount()
+
+    return () => {
+      cancelled = true
+    }
+    // Clearing on logout happens in handleLogout itself, not here.
+  }, [session])
+
+  async function handleSelectHistoryItem(agentRunId: number) {
+    setHistoryLoadingId(agentRunId)
+    setHistoryError('')
+
+    try {
+      const agentRun = await fetchAgentRun(agentRunId)
+      setResult(agentRun)
+      // A freshly-loaded past run's recommendations were never interacted
+      // with in this browser session - don't carry over "Good match"/"Not
+      // a fit" highlighting from whatever was previously on screen.
+      setFeedbackByRecommendation({})
+    } catch (error) {
+      setHistoryError(error instanceof ApiError ? error.message : 'Could not load that trip plan.')
+    } finally {
+      setHistoryLoadingId(null)
+    }
+  }
 
   function setSessionAndNavigate(nextSession: SessionState | null) {
     setSession(nextSession)
@@ -274,6 +346,7 @@ function App() {
         useByok ? byokSelection.apiKey : undefined,
       )
       setResult(agentRun)
+      await refreshHistory()
     } catch (error) {
       setPlannerError(
         error instanceof ApiError ? error.message : 'Trip planning failed.',
@@ -312,6 +385,7 @@ function App() {
     }
     setSessionAndNavigate(null)
     setResult(null)
+    setHistory([])
   }
 
   function handleByokOptionChange(value: string) {
@@ -547,6 +621,48 @@ function App() {
             </button>
           </form>
         </div>
+      </section>
+
+      <section className="gt-panel">
+        <div className="gt-panel-header">
+          <div>
+            <p className="gt-eyebrow">History</p>
+            <h2>Past trip plans</h2>
+          </div>
+          <span className="gt-pill">{history.length} saved</span>
+        </div>
+
+        {historyError ? (
+          <p className="error-text" role="alert">
+            {historyError}
+          </p>
+        ) : null}
+
+        {history.length ? (
+          <div className="logs-list">
+            {history.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="history-row gt-panel gt-panel--raised log-card"
+                onClick={() => handleSelectHistoryItem(item.id)}
+                disabled={historyLoadingId === item.id}
+              >
+                <div className="log-header">
+                  <strong className="history-prompt">{item.prompt}</strong>
+                  <span className={`gt-pill ${statusPillTone(item.status)}`}>
+                    {historyLoadingId === item.id ? 'loading…' : item.status}
+                  </span>
+                </div>
+                <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  {new Date(item.created_at).toLocaleString()}
+                </p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">No trips yet - your plans will show up here.</p>
+        )}
       </section>
 
       {result && (
