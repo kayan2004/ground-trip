@@ -33,8 +33,11 @@ EXPOSE 8000
 
 # urllib is stdlib - no extra package needed just for a health probe.
 # Non-zero exit (an exception, here) is exactly what HEALTHCHECK needs to
-# see as "unhealthy".
+# see as "unhealthy". Reads $PORT at runtime (falling back to 8000) to match
+# docker-entrypoint.sh's uvicorn bind - a PaaS host that assigns a different
+# port would otherwise make this healthcheck probe the wrong port and
+# report the container unhealthy even though it's serving fine.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+    CMD ["python3", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8000') + '/health', timeout=3)"]
 
 CMD ["./docker-entrypoint.sh"]

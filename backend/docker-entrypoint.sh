@@ -11,4 +11,7 @@ set -e
 # calling alembic.command.upgrade() directly.
 uv run --frozen --no-dev alembic upgrade head
 
-exec uv run --frozen --no-dev uvicorn main:app --host 0.0.0.0 --port 8000
+# PaaS hosts (Railway, etc.) assign a port dynamically via $PORT and expect
+# the app to bind to it - the ${PORT:-8000} fallback keeps `docker compose`
+# (which never sets PORT) working unchanged with the same 8000 as before.
+exec uv run --frozen --no-dev uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}"
