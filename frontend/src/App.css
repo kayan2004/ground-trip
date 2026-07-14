@@ -514,6 +514,35 @@
   -webkit-box-orient: vertical;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  z-index: 100;
+}
+
+.modal-content {
+  width: min(560px, 100%);
+  max-height: min(720px, 90vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-close-btn {
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.3em 0.6em;
+  min-height: unset;
+}
+
+.modal-scroll {
+  overflow-y: auto;
+}
+
 .feedback-actions {
   display: flex;
   flex-wrap: wrap;

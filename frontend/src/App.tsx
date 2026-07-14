@@ -147,8 +147,20 @@ function App() {
   const [history, setHistory] = useState<AgentRunSummary[]>([])
   const [historyError, setHistoryError] = useState('')
   const [historyLoadingId, setHistoryLoadingId] = useState<number | null>(null)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
   const authMode: AuthMode = view === 'signup' ? 'signup' : 'login'
+
+  useEffect(() => {
+    if (!isHistoryOpen) return
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsHistoryOpen(false)
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isHistoryOpen])
 
   useEffect(() => {
     const handlePopState = () => {
@@ -265,6 +277,7 @@ function App() {
       // with in this browser session - don't carry over "Good match"/"Not
       // a fit" highlighting from whatever was previously on screen.
       setFeedbackByRecommendation({})
+      setIsHistoryOpen(false)
     } catch (error) {
       setHistoryError(error instanceof ApiError ? error.message : 'Could not load that trip plan.')
     } finally {
@@ -386,6 +399,7 @@ function App() {
     setSessionAndNavigate(null)
     setResult(null)
     setHistory([])
+    setIsHistoryOpen(false)
   }
 
   function handleByokOptionChange(value: string) {
@@ -638,32 +652,77 @@ function App() {
           </p>
         ) : null}
 
-        {history.length ? (
-          <div className="logs-list">
-            {history.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="history-row gt-panel gt-panel--raised log-card"
-                onClick={() => handleSelectHistoryItem(item.id)}
-                disabled={historyLoadingId === item.id}
-              >
-                <div className="log-header">
-                  <strong className="history-prompt">{item.prompt}</strong>
-                  <span className={`gt-pill ${statusPillTone(item.status)}`}>
-                    {historyLoadingId === item.id ? 'loading…' : item.status}
-                  </span>
-                </div>
-                <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
-                  {new Date(item.created_at).toLocaleString()}
-                </p>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-state">No trips yet - your plans will show up here.</p>
-        )}
+        <button
+          type="button"
+          className="gt-btn gt-btn--primary"
+          onClick={() => setIsHistoryOpen(true)}
+        >
+          View trip history
+        </button>
       </section>
+
+      {isHistoryOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setIsHistoryOpen(false)}
+        >
+          <div
+            className="gt-panel gt-panel--raised modal-content"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Past trip plans"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="gt-panel-header">
+              <div>
+                <p className="gt-eyebrow">History</p>
+                <h2>Past trip plans</h2>
+              </div>
+              <button
+                type="button"
+                className="gt-btn gt-btn--ghost modal-close-btn"
+                onClick={() => setIsHistoryOpen(false)}
+                aria-label="Close trip history"
+              >
+                ×
+              </button>
+            </div>
+
+            {historyError ? (
+              <p className="error-text" role="alert">
+                {historyError}
+              </p>
+            ) : null}
+
+            {history.length ? (
+              <div className="logs-list modal-scroll">
+                {history.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="history-row gt-panel gt-panel--raised log-card"
+                    onClick={() => handleSelectHistoryItem(item.id)}
+                    disabled={historyLoadingId === item.id}
+                  >
+                    <div className="log-header">
+                      <strong className="history-prompt">{item.prompt}</strong>
+                      <span className={`gt-pill ${statusPillTone(item.status)}`}>
+                        {historyLoadingId === item.id ? 'loading…' : item.status}
+                      </span>
+                    </div>
+                    <p className="log-time gt-mono-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">No trips yet - your plans will show up here.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {result && (
         <section className="gt-results-grid">

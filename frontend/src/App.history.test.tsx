@@ -63,29 +63,44 @@ afterEach(() => {
 })
 
 describe('History panel', () => {
-  it('lists past trip plans fetched from GET /agent-runs', async () => {
+  it('does not show past trips until the history button is opened', async () => {
     mockFetch()
     render(<App />)
 
+    await screen.findByText('2 saved')
+    expect(screen.queryByText('A relaxing week in the mountains')).not.toBeInTheDocument()
+  })
+
+  it('lists past trip plans fetched from GET /agent-runs after opening', async () => {
+    mockFetch()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await screen.findByText('2 saved')
+    await user.click(screen.getByRole('button', { name: 'View trip history' }))
+
     expect(await screen.findByText('A relaxing week in the mountains')).toBeInTheDocument()
     expect(await screen.findByText('A budget beach trip')).toBeInTheDocument()
-    expect(screen.getByText('2 saved')).toBeInTheDocument()
   })
 
   it('shows an empty state when there is no history yet', async () => {
     mockFetch({ historyEmpty: true })
+    const user = userEvent.setup()
     render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'View trip history' }))
 
     expect(
       await screen.findByText('No trips yet - your plans will show up here.'),
     ).toBeInTheDocument()
   })
 
-  it('loads full detail via GET /agent-runs/{id} when a history row is clicked', async () => {
+  it('loads full detail via GET /agent-runs/{id} when a history row is clicked, then closes the modal', async () => {
     const fetchMock = mockFetch()
     const user = userEvent.setup()
     render(<App />)
 
+    await user.click(await screen.findByRole('button', { name: 'View trip history' }))
     const row = await screen.findByText('A budget beach trip')
     await user.click(row)
 
@@ -94,5 +109,19 @@ describe('History panel', () => {
       expect.stringMatching(/\/agent-runs\/41$/),
       expect.anything(),
     )
+    expect(screen.queryByRole('dialog', { name: 'Past trip plans' })).not.toBeInTheDocument()
+  })
+
+  it('closes the modal via the close button without selecting anything', async () => {
+    mockFetch()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'View trip history' }))
+    expect(await screen.findByText('A budget beach trip')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Close trip history' }))
+
+    expect(screen.queryByText('A budget beach trip')).not.toBeInTheDocument()
   })
 })
