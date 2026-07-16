@@ -368,14 +368,18 @@
 
 /* Shown when the free run is used / a 402 gate blocks a run - a prompt to
    bring your own key, not an error, so it uses the brass accent rather than
-   the red error tone. */
+   the red error tone. --text-primary is a near-white tone meant for dark
+   panel backgrounds - paired with the light --surface-inset background
+   here it was nearly invisible (both close to #f1ead8/#eee7d6). Use the
+   same --text-on-paper/--surface-inset pairing .gt-panel--paper already
+   establishes for light-surface content. */
 .byok-notice {
   margin: var(--space-2) 0 0;
   padding: var(--space-3);
-  border: var(--stroke-hairline) solid var(--brass);
+  border: var(--stroke-md) solid var(--brass-dim);
   border-radius: var(--radius-sm);
   background: var(--surface-inset);
-  color: var(--text-primary);
+  color: var(--text-on-paper);
   font: var(--text-body-sm);
 }
 
